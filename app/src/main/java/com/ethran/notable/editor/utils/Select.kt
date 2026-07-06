@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Region
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.toOffset
 import androidx.core.graphics.createBitmap
@@ -21,9 +22,6 @@ import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-//TODO: clean up this code, there is a lot of duplication
-
-
 enum class SelectPointPosition {
     LEFT,
     RIGHT,
@@ -32,41 +30,47 @@ enum class SelectPointPosition {
 
 private val log = ShipBook.getLogger("Select")
 
-fun selectStrokesFromPath(strokes: List<Stroke>, path: Path): List<Stroke> {
-    val bounds = RectF()
-    path.computeBounds(bounds, true)
+/**
+ * A selection area built from a lasso [Path], usable for point-membership tests.
+ *
+ * Single source of truth for how selection boundaries are computed: [android.graphics.Region]
+ * only supports 16-bit coordinates, so the path is translated up by `-bounds.top` before
+ * being converted; [contains] applies the same translation to the tested points.
+ */
+class SelectionRegion(path: Path) {
+    val bounds = RectF().also { path.computeBounds(it, true) }
 
-    //region is only 16 bit, so we need to move our region
-    val translatedPath = Path(path)
-    translatedPath.offset(0f, -bounds.top)
-    val region = pathToRegion(translatedPath)
+    private val region: Region = run {
+        val translatedPath = Path(path)
+        translatedPath.offset(0f, -bounds.top)
+        pathToRegion(translatedPath)
+    }
+
+    fun contains(x: Float, y: Float): Boolean =
+        region.contains(x.toInt(), (y - bounds.top).toInt())
+}
+
+fun selectStrokesFromPath(strokes: List<Stroke>, path: Path): List<Stroke> {
+    val selection = SelectionRegion(path)
 
     return strokes.filter {
-        strokeBounds(it).intersect(bounds)
+        strokeBounds(it).intersect(selection.bounds)
     }.filter {
-        it.points.any { point ->
-            region.contains(
-                point.x.toInt(),
-                (point.y - bounds.top).toInt()
-            )
-        }
+        // include stroke if any of its points is within the region
+        it.points.any { point -> selection.contains(point.x, point.y) }
     }
 }
 
 fun selectImagesFromPath(images: List<Image>, path: Path): List<Image> {
-    val bounds = RectF()
-    path.computeBounds(bounds, true)
-
-    //region is only 16 bit, so we need to move our region
-    val translatedPath = Path(path)
-    translatedPath.offset(0f, -bounds.top)
-    val region = pathToRegion(translatedPath)
+    val selection = SelectionRegion(path)
 
     return images.filter {
-        imageBounds(it).intersect(bounds)
+        imageBounds(it).intersect(selection.bounds)
     }.filter {
         // include image if all its corners are within region
-        imagePoints(it).all { point -> region.contains(point.x, (point.y - bounds.top).toInt()) }
+        imagePoints(it).all { point ->
+            selection.contains(point.x.toFloat(), point.y.toFloat())
+        }
     }
 }
 
