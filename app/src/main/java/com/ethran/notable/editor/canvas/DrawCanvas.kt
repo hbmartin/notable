@@ -20,9 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 
 val pressure = EpdController.getMaxTouchPressure()
 
-// keep reference of the surface view presently associated to the singleton touchhelper
-var referencedSurfaceView: String = ""
-
 @SuppressLint("ViewConstructor") // we never execute constructor from XML
 class DrawCanvas(
     context: Context,
@@ -135,13 +132,12 @@ class DrawCanvas(
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
-                log.i(
-                    "surface destroyed ${
-                        this@DrawCanvas.hashCode()
-                    } - ref $referencedSurfaceView"
-                )
+                log.i("surface destroyed ${this@DrawCanvas.hashCode()}")
                 holder.removeCallback(this)
-                if (referencedSurfaceView == this@DrawCanvas.hashCode().toString()) {
+                // Only the canvas whose input handler currently owns the raw-input
+                // surface may close the raw drawing session; a stale canvas being torn
+                // down after a newer one claimed the surface must leave it alone.
+                if (inputHandler.ownsRawInputSurface()) {
                     inputHandler.touchHelper?.closeRawDrawing()
                 }
                 onSurfaceDestroy(this@DrawCanvas, inputHandler.touchHelper)

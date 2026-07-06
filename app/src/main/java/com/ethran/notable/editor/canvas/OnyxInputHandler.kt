@@ -64,12 +64,24 @@ class OnyxInputHandler(
             ?: EditorViewModel.DEFAULT_PEN_SETTINGS[toolbarState.pen.penName]
             ?: PenSetting(strokeSize = 5f, color = Color.BLACK)
 
+    companion object {
+        // The Onyx firmware drives a single raw-input surface at a time, so device-wide
+        // coordination is needed: track which handler claimed the surface last, and let a
+        // handler ask whether it is still the owner (see DrawCanvas surfaceDestroyed).
+        // Kept private to this class instead of a global mutable variable.
+        @Volatile
+        private var rawInputSurfaceOwner: OnyxInputHandler? = null
+    }
+
+    /** True while this handler is the last one to have claimed the raw-input surface. */
+    fun ownsRawInputSurface(): Boolean = rawInputSurfaceOwner === this
+
     // TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper
     //       lazy during DrawCanvas construction.
     val touchHelper by lazy {
         val helper = if (DeviceCompat.isOnyxDevice) {
             try {
-                referencedSurfaceView = this.hashCode().toString()
+                rawInputSurfaceOwner = this
                 TouchHelper.create(drawCanvas, inputCallback)
             } catch (t: Throwable) {
                 Log.w("OnyxInputHandler", "TouchHelper.create failed: ${t.message}")
