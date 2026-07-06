@@ -76,6 +76,15 @@ class OnyxInputHandler(
     /** True while this handler is the last one to have claimed the raw-input surface. */
     fun ownsRawInputSurface(): Boolean = rawInputSurfaceOwner === this
 
+    /**
+     * Drops this handler's claim on the raw-input surface (no-op if a newer handler
+     * already claimed it). Called when the surface is destroyed so the companion
+     * reference doesn't keep the whole canvas/page graph alive after the editor closes.
+     */
+    fun releaseRawInputSurface() {
+        if (rawInputSurfaceOwner === this) rawInputSurfaceOwner = null
+    }
+
     // TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper
     //       lazy during DrawCanvas construction.
     val touchHelper by lazy {
@@ -209,6 +218,9 @@ class OnyxInputHandler(
         // Takes at least 50ms on Note 4c,
         // and I don't think that we need it immediately
         log.i("Update editable surface")
+        // (Re)claim the raw-input surface: this runs whenever our canvas's surface is
+        // (re)created, e.g. after a release on surfaceDestroyed during sleep/rotation.
+        if (touchHelper != null) rawInputSurfaceOwner = this
         coroutineScope.launch {
             onSurfaceInit(drawCanvas)
             val toolbarHeight =

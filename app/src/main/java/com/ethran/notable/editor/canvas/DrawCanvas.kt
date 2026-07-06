@@ -141,6 +141,10 @@ class DrawCanvas(
                     inputHandler.touchHelper?.closeRawDrawing()
                 }
                 onSurfaceDestroy(this@DrawCanvas, inputHandler.touchHelper)
+                // Drop the ownership claim so the companion reference doesn't retain
+                // this canvas after the editor closes; updateActiveSurface() re-claims
+                // it if the surface comes back.
+                inputHandler.releaseRawInputSurface()
             }
         }
 

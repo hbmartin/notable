@@ -28,7 +28,9 @@ import com.ethran.notable.ui.LocalSnackContext
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.dialogs.ShowNotebookSelectionDialog
 import com.ethran.notable.ui.noRippleClickable
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 @Composable
@@ -45,23 +47,36 @@ fun PageMenu(
     val scope = rememberCoroutineScope()
     val snackManager = LocalSnackContext.current
     var showMoveToNotebookDialog by remember { mutableStateOf(false) }
+    var moveInProgress by remember { mutableStateOf(false) }
 
     if (showMoveToNotebookDialog) {
         ShowNotebookSelectionDialog(
             appRepository = appRepository,
             title = "Move quick page to notebook:",
-            onCancel = { showMoveToNotebookDialog = false },
+            onCancel = { if (!moveInProgress) showMoveToNotebookDialog = false },
             onConfirm = { selectedBookId ->
-                showMoveToNotebookDialog = false
-                scope.launch {
-                    val moved = appRepository.moveQuickPageToBook(pageId, selectedBookId)
-                    if (!moved) {
-                        snackManager.showOrUpdateSnack(
-                            SnackConf(text = "Could not move page to notebook", duration = 3000)
-                        )
+                // Keep the dialog mounted until the move finishes: closing first would
+                // cancel this composition-bound scope mid-write. NonCancellable shields
+                // the two-step DB update — interrupting it between the page update and
+                // the notebook update would orphan the page. moveInProgress prevents a
+                // double-tap from appending the page to the notebook twice.
+                if (!moveInProgress) {
+                    moveInProgress = true
+                    scope.launch {
+                        val moved = withContext(NonCancellable) {
+                            appRepository.moveQuickPageToBook(pageId, selectedBookId)
+                        }
+                        if (!moved) {
+                            snackManager.showOrUpdateSnack(
+                                SnackConf(
+                                    text = "Could not move page to notebook",
+                                    duration = 3000
+                                )
+                            )
+                        }
+                        onClose()
                     }
                 }
-                onClose()
             })
         return
     }

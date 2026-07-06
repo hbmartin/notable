@@ -131,9 +131,17 @@ class FolderRepository @Inject constructor(
 
     /** True when [candidateId] is [folderId] itself or lies anywhere below it. */
     private suspend fun isSelfOrDescendant(folderId: String, candidateId: String): Boolean {
+        val visited = mutableSetOf<String>()
         var current: String? = candidateId
         while (current != null) {
             if (current == folderId) return true
+            if (!visited.add(current)) {
+                // Parent chain already contains a cycle (e.g. produced by a sync merge
+                // of two concurrent moves) — treat the target as unsafe instead of
+                // walking forever.
+                log.e("isSelfOrDescendant: folder hierarchy cycle detected at $current")
+                return true
+            }
             current = db.get(current)?.parentFolderId
         }
         return false

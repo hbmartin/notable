@@ -41,7 +41,9 @@ import com.ethran.notable.ui.LocalSnackContext
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.noRippleClickable
 import io.shipbook.shipbooksdk.ShipBook
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val log = ShipBook.getLogger("FolderConfig")
 
@@ -76,9 +78,13 @@ fun FolderConfigDialog(appRepository: AppRepository,
             initialFolderId = folder!!.parentFolderId,
             onCancel = { showMoveDialog = false },
             onConfirm = { selectedFolderId ->
-                showMoveDialog = false
+                // Keep the dialog mounted until the move finishes: closing first would
+                // cancel this composition-bound scope and could silently drop the move
+                // (and the rejection snack with it).
                 scope.launch {
-                    val moved = folderRepository.move(folderId, selectedFolderId)
+                    val moved = withContext(NonCancellable) {
+                        folderRepository.move(folderId, selectedFolderId)
+                    }
                     if (!moved) {
                         snackManager.showOrUpdateSnack(
                             SnackConf(
@@ -87,8 +93,8 @@ fun FolderConfigDialog(appRepository: AppRepository,
                             )
                         )
                     }
+                    onClose()
                 }
-                onClose()
             })
         return
     }
