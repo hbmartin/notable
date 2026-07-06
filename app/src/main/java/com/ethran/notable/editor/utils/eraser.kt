@@ -124,7 +124,20 @@ fun handleScribbleToErase(
 
     // Filter intersecting strokes based on intersection ratio
     val expandedBoundingBox = boundingBox.expandBy(strokeSizeForDetection / 2)
-    val deletedStrokes = filterStrokesByIntersection(candidateStrokes, expandedBoundingBox)
+    val touchedStrokes = filterStrokesByIntersection(candidateStrokes, expandedBoundingBox)
+
+    // Bounding-box mode: erase everything inside the area the scribble covers, not just
+    // the strokes its path touches — small fragments and dots between the scribble's
+    // lines are removed too, instead of being left behind for manual cleanup.
+    val deletedStrokes = if (GlobalAppSettings.current.scribbleToEraseBoundingBox) {
+        val insideBox = page.strokes.filter { stroke ->
+            RectF.intersects(strokeBounds(stroke), expandedBoundingBox) &&
+                    stroke.points.any { expandedBoundingBox.contains(it.x, it.y) }
+        }
+        (touchedStrokes + insideBox).distinctBy { it.id }
+    } else {
+        touchedStrokes
+    }
 
     // If strokes were found, remove them and update history
     if (deletedStrokes.isNotEmpty()) {
