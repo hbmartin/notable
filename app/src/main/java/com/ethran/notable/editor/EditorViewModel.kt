@@ -83,7 +83,8 @@ data class ToolbarUiState(
     val mode: Mode = Mode.Draw,
     val pen: Pen = Pen.BALLPEN,
     val eraser: Eraser = Eraser.PEN,
-    // TODO: if it is an  emptyMap(), the DrawCanvas crashes, to be fixed.
+    // Missing entries are backfilled from DEFAULT_PEN_SETTINGS by consumers
+    // (see OnyxInputHandler.currentPenSetting), so an incomplete map is safe.
     val penSettings: Map<String, PenSetting> = DEFAULT_PEN_SETTINGS,
     val isSelectionActive: Boolean = false,
     val hasClipboard: Boolean = false,

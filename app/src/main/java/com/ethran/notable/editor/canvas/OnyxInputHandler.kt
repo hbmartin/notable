@@ -23,6 +23,7 @@ import com.ethran.notable.editor.utils.handleErase
 import com.ethran.notable.editor.utils.handleScribbleToErase
 import com.ethran.notable.editor.utils.handleSelect
 import com.ethran.notable.editor.utils.onSurfaceInit
+import com.ethran.notable.editor.utils.PenSetting
 import com.ethran.notable.editor.utils.penToStroke
 import com.ethran.notable.editor.utils.setupSurface
 import com.ethran.notable.editor.utils.transformToLine
@@ -54,6 +55,14 @@ class OnyxInputHandler(
     var lastStrokeEndTime: Long = 0
     private val log = ShipBook.getLogger("DrawCanvas")
     private val toolbarState get() = viewModel.toolbarState.value
+
+    // Settings for the active pen. penSettings may lack an entry for the current pen
+    // (e.g. empty or partially restored map), which used to crash with an NPE — fall
+    // back to the defaults, then to a sane hardcoded setting.
+    private val currentPenSetting: PenSetting
+        get() = toolbarState.penSettings[toolbarState.pen.penName]
+            ?: EditorViewModel.DEFAULT_PEN_SETTINGS[toolbarState.pen.penName]
+            ?: PenSetting(strokeSize = 5f, color = Color.BLACK)
 
     // TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper
     //       lazy during DrawCanvas construction.
@@ -124,9 +133,12 @@ class OnyxInputHandler(
         log.i("Update pen and stroke")
         when (toolbarState.mode) {
             // we need to change size according to zoom level before drawing on screen
-            Mode.Draw, Mode.Line -> touchHelper!!.setStrokeStyle(penToStroke(toolbarState.pen))
-                ?.setStrokeWidth(toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize * page.zoomLevel.value)
-                ?.setStrokeColor(toolbarState.penSettings[toolbarState.pen.penName]!!.color)
+            Mode.Draw, Mode.Line -> {
+                val penSetting = currentPenSetting
+                touchHelper!!.setStrokeStyle(penToStroke(toolbarState.pen))
+                    ?.setStrokeWidth(penSetting.strokeSize * page.zoomLevel.value)
+                    ?.setStrokeColor(penSetting.color)
+            }
 
             Mode.Erase -> applyEraserIndicatorStyle(penEraserColor = Color.GRAY)
 
@@ -240,11 +252,12 @@ class OnyxInputHandler(
                         )
                         val linePoints = transformToLine(startPoint, endPoint)
 
+                        val penSetting = currentPenSetting
                         handleDraw(
                             drawCanvas.page,
                             strokeHistoryBatch,
-                            toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize,
-                            toolbarState.penSettings[toolbarState.pen.penName]!!.color,
+                            penSetting.strokeSize,
+                            penSetting.color,
                             toolbarState.pen,
                             linePoints
                         )
@@ -284,11 +297,12 @@ class OnyxInputHandler(
                         if (erasedByScribbleDirtyRect.isNullOrEmpty()) {
                             log.d("Drawing...")
                             // draw the stroke
+                            val penSetting = currentPenSetting
                             handleDraw(
                                 drawCanvas.page,
                                 strokeHistoryBatch,
-                                toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize,
-                                toolbarState.penSettings[toolbarState.pen.penName]!!.color,
+                                penSetting.strokeSize,
+                                penSetting.color,
                                 toolbarState.pen,
                                 scaledPoints
                             )
