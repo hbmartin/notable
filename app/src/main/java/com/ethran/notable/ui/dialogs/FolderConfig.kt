@@ -35,8 +35,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.db.Folder
-import com.ethran.notable.data.db.FolderRepository
+import com.ethran.notable.ui.LocalSnackContext
+import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.noRippleClickable
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.launch
@@ -44,12 +46,15 @@ import kotlinx.coroutines.launch
 private val log = ShipBook.getLogger("FolderConfig")
 
 @Composable
-fun FolderConfigDialog(folderRepository: FolderRepository,
+fun FolderConfigDialog(appRepository: AppRepository,
                        folderId: String,
                        onClose: () -> Unit) {
+    val folderRepository = appRepository.folderRepository
     val scope = rememberCoroutineScope()
+    val snackManager = LocalSnackContext.current
     var folder by remember { mutableStateOf<Folder?>(null) }
     var folderTitle by remember { mutableStateOf("") }
+    var showMoveDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(folderId) {
         val f = folderRepository.get(folderId)
@@ -63,6 +68,30 @@ fun FolderConfigDialog(folderRepository: FolderRepository,
     }
 
     if (folder == null) return
+
+    if (showMoveDialog) {
+        ShowFolderSelectionDialog(
+            appRepository = appRepository,
+            notebookName = folder!!.title,
+            initialFolderId = folder!!.parentFolderId,
+            onCancel = { showMoveDialog = false },
+            onConfirm = { selectedFolderId ->
+                showMoveDialog = false
+                scope.launch {
+                    val moved = folderRepository.move(folderId, selectedFolderId)
+                    if (!moved) {
+                        snackManager.showOrUpdateSnack(
+                            SnackConf(
+                                text = "Cannot move a folder into itself or its subfolders",
+                                duration = 3000
+                            )
+                        )
+                    }
+                }
+                onClose()
+            })
+        return
+    }
 
     Dialog(
         onDismissRequest = {
@@ -134,6 +163,25 @@ fun FolderConfigDialog(folderRepository: FolderRepository,
                     )
 
                 }
+            }
+
+            Box(
+                Modifier
+                    .padding(20.dp, 0.dp)
+                    .height(0.5.dp)
+                    .fillMaxWidth()
+                    .background(Color.Black)
+            )
+
+            Column(
+                Modifier.padding(20.dp, 10.dp)
+            ) {
+                Text(
+                    text = "Move Folder",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.noRippleClickable {
+                        showMoveDialog = true
+                    })
             }
 
             Box(

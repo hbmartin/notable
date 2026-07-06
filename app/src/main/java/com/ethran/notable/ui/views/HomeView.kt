@@ -264,7 +264,7 @@ fun FolderList(
             items(folders) { folder ->
                 var isFolderSettingsOpen by remember { mutableStateOf(false) }
                 if (isFolderSettingsOpen) FolderConfigDialog(
-                    appRepository.folderRepository,
+                    appRepository,
                     folderId = folder.id,
                     onClose = {
                         log.i("Closing Directory Dialog")
