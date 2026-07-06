@@ -23,6 +23,7 @@ import com.ethran.notable.editor.utils.handleErase
 import com.ethran.notable.editor.utils.handleScribbleToErase
 import com.ethran.notable.editor.utils.handleSelect
 import com.ethran.notable.editor.utils.onSurfaceInit
+import com.ethran.notable.editor.utils.PenSetting
 import com.ethran.notable.editor.utils.penToStroke
 import com.ethran.notable.editor.utils.setupSurface
 import com.ethran.notable.editor.utils.transformToLine
@@ -55,12 +56,41 @@ class OnyxInputHandler(
     private val log = ShipBook.getLogger("DrawCanvas")
     private val toolbarState get() = viewModel.toolbarState.value
 
+    // Settings for the active pen. penSettings may lack an entry for the current pen
+    // (e.g. empty or partially restored map), which used to crash with an NPE — fall
+    // back to the defaults, then to a sane hardcoded setting.
+    private val currentPenSetting: PenSetting
+        get() = toolbarState.penSettings[toolbarState.pen.penName]
+            ?: EditorViewModel.DEFAULT_PEN_SETTINGS[toolbarState.pen.penName]
+            ?: PenSetting(strokeSize = 5f, color = Color.BLACK)
+
+    companion object {
+        // The Onyx firmware drives a single raw-input surface at a time, so device-wide
+        // coordination is needed: track which handler claimed the surface last, and let a
+        // handler ask whether it is still the owner (see DrawCanvas surfaceDestroyed).
+        // Kept private to this class instead of a global mutable variable.
+        @Volatile
+        private var rawInputSurfaceOwner: OnyxInputHandler? = null
+    }
+
+    /** True while this handler is the last one to have claimed the raw-input surface. */
+    fun ownsRawInputSurface(): Boolean = rawInputSurfaceOwner === this
+
+    /**
+     * Drops this handler's claim on the raw-input surface (no-op if a newer handler
+     * already claimed it). Called when the surface is destroyed so the companion
+     * reference doesn't keep the whole canvas/page graph alive after the editor closes.
+     */
+    fun releaseRawInputSurface() {
+        if (rawInputSurfaceOwner === this) rawInputSurfaceOwner = null
+    }
+
     // TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper
     //       lazy during DrawCanvas construction.
     val touchHelper by lazy {
         val helper = if (DeviceCompat.isOnyxDevice) {
             try {
-                referencedSurfaceView = this.hashCode().toString()
+                rawInputSurfaceOwner = this
                 TouchHelper.create(drawCanvas, inputCallback)
             } catch (t: Throwable) {
                 Log.w("OnyxInputHandler", "TouchHelper.create failed: ${t.message}")
@@ -124,9 +154,12 @@ class OnyxInputHandler(
         log.i("Update pen and stroke")
         when (toolbarState.mode) {
             // we need to change size according to zoom level before drawing on screen
-            Mode.Draw, Mode.Line -> touchHelper!!.setStrokeStyle(penToStroke(toolbarState.pen))
-                ?.setStrokeWidth(toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize * page.zoomLevel.value)
-                ?.setStrokeColor(toolbarState.penSettings[toolbarState.pen.penName]!!.color)
+            Mode.Draw, Mode.Line -> {
+                val penSetting = currentPenSetting
+                touchHelper!!.setStrokeStyle(penToStroke(toolbarState.pen))
+                    ?.setStrokeWidth(penSetting.strokeSize * page.zoomLevel.value)
+                    ?.setStrokeColor(penSetting.color)
+            }
 
             Mode.Erase -> applyEraserIndicatorStyle(penEraserColor = Color.GRAY)
 
@@ -185,6 +218,9 @@ class OnyxInputHandler(
         // Takes at least 50ms on Note 4c,
         // and I don't think that we need it immediately
         log.i("Update editable surface")
+        // (Re)claim the raw-input surface: this runs whenever our canvas's surface is
+        // (re)created, e.g. after a release on surfaceDestroyed during sleep/rotation.
+        if (touchHelper != null) rawInputSurfaceOwner = this
         coroutineScope.launch {
             onSurfaceInit(drawCanvas)
             val toolbarHeight =
@@ -240,11 +276,12 @@ class OnyxInputHandler(
                         )
                         val linePoints = transformToLine(startPoint, endPoint)
 
+                        val penSetting = currentPenSetting
                         handleDraw(
                             drawCanvas.page,
                             strokeHistoryBatch,
-                            toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize,
-                            toolbarState.penSettings[toolbarState.pen.penName]!!.color,
+                            penSetting.strokeSize,
+                            penSetting.color,
                             toolbarState.pen,
                             linePoints
                         )
@@ -284,11 +321,12 @@ class OnyxInputHandler(
                         if (erasedByScribbleDirtyRect.isNullOrEmpty()) {
                             log.d("Drawing...")
                             // draw the stroke
+                            val penSetting = currentPenSetting
                             handleDraw(
                                 drawCanvas.page,
                                 strokeHistoryBatch,
-                                toolbarState.penSettings[toolbarState.pen.penName]!!.strokeSize,
-                                toolbarState.penSettings[toolbarState.pen.penName]!!.color,
+                                penSetting.strokeSize,
+                                penSetting.color,
                                 toolbarState.pen,
                                 scaledPoints
                             )

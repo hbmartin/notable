@@ -39,6 +39,9 @@ data class AppSettings(
     val quickNavPages: List<String> = listOf(),
     val neoTools: Boolean = false,
     val scribbleToEraseEnabled: Boolean = false,
+    // When enabled, scribble-to-erase clears every stroke inside the scribble's
+    // bounding box instead of only the strokes the scribble touches.
+    val scribbleToEraseBoundingBox: Boolean = false,
     val toolbarPosition: Position = Position.Top,
     val smoothScroll: Boolean = true,
     val continuousZoom: Boolean = false,
@@ -57,6 +60,8 @@ data class AppSettings(
     val holdAction: GestureAction = GestureAction.Select,
     val enableQuickNav: Boolean = true,
     val renameOnCreate: Boolean = true,
+    // Turn pages in the editor with the volume / page-turn hardware buttons.
+    val volumeButtonPageTurn: Boolean = false,
 
     // Debug
     val showWelcome: Boolean = true,

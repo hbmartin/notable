@@ -1,6 +1,7 @@
 # Project structure
 
 A concise map of the codebase so you can find things fast and know where new code belongs.
+For how these components interact, see `architecture.md`.
 
 app/src/main/AndroidManifest.xml
 - Component declarations.
@@ -26,7 +27,8 @@ com.ethran.notable/
     - utils/ — Internal editor utilities (Pen/Eraser logic, Operations, Input handling).
     - EditorViewModel.kt — Orchestrates editor state and UI interactions.
     - EditorControlTower.kt — High-level coordination of editor components.
-    - PageView.kt — The main composable representing a single page.
+    - PageView.kt — State and rendering of the single page being edited.
+    - PageViewGeometry.kt — Pure viewport math (zoom snapping, redraw bands) used by PageView.
 
 - io/ — File and bitmap I/O
     - ImportEngine.kt / ExportEngine.kt — Handling .xopp and PDF files.

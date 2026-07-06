@@ -109,7 +109,9 @@ fun ShowPagesRow(
                     )
                     if (isPageSelected) PageMenu(
                         appRepository = appRepository,
-                        pageId = pageId, canDelete = true, onClose = { isPageSelected = false })
+                        pageId = pageId, canDelete = true,
+                        isQuickPage = page.notebookId == null,
+                        onClose = { isPageSelected = false })
                 }
             }
         }

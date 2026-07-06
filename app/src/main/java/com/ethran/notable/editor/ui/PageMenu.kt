@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,8 +24,13 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.deletePage
+import com.ethran.notable.ui.LocalSnackContext
+import com.ethran.notable.ui.SnackConf
+import com.ethran.notable.ui.dialogs.ShowNotebookSelectionDialog
 import com.ethran.notable.ui.noRippleClickable
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 @Composable
@@ -31,10 +40,47 @@ fun PageMenu(
     pageId: String,
     index: Int? = null,
     canDelete: Boolean,
+    isQuickPage: Boolean = false,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackManager = LocalSnackContext.current
+    var showMoveToNotebookDialog by remember { mutableStateOf(false) }
+    var moveInProgress by remember { mutableStateOf(false) }
+
+    if (showMoveToNotebookDialog) {
+        ShowNotebookSelectionDialog(
+            appRepository = appRepository,
+            title = "Move quick page to notebook:",
+            onCancel = { if (!moveInProgress) showMoveToNotebookDialog = false },
+            onConfirm = { selectedBookId ->
+                // Keep the dialog mounted until the move finishes: closing first would
+                // cancel this composition-bound scope mid-write. NonCancellable shields
+                // the two-step DB update — interrupting it between the page update and
+                // the notebook update would orphan the page. moveInProgress prevents a
+                // double-tap from appending the page to the notebook twice.
+                if (!moveInProgress) {
+                    moveInProgress = true
+                    scope.launch {
+                        val moved = withContext(NonCancellable) {
+                            appRepository.moveQuickPageToBook(pageId, selectedBookId)
+                        }
+                        if (!moved) {
+                            snackManager.showOrUpdateSnack(
+                                SnackConf(
+                                    text = "Could not move page to notebook",
+                                    duration = 3000
+                                )
+                            )
+                        }
+                        onClose()
+                    }
+                }
+            })
+        return
+    }
+
     Popup(
         alignment = Alignment.TopStart,
         onDismissRequest = { onClose() },
@@ -86,6 +132,17 @@ fun PageMenu(
                             }
                         }) {
                     Text("Insert after")
+                }
+            }
+
+            if (isQuickPage) {
+                Box(
+                    Modifier
+                        .padding(10.dp)
+                        .noRippleClickable {
+                            showMoveToNotebookDialog = true
+                        }) {
+                    Text("Move to notebook")
                 }
             }
 

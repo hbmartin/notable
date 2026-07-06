@@ -111,6 +111,41 @@ class FolderRepository @Inject constructor(
         return db.get(folderId)
     }
 
+    /**
+     * Moves a folder (with everything it contains) under [newParentId]
+     * (null = library root). Moves that would create a cycle — into itself
+     * or into one of its own descendants — are rejected.
+     *
+     * @return true when the folder ends up under [newParentId], false when rejected.
+     */
+    suspend fun move(folderId: String, newParentId: String?): Boolean {
+        val folder = db.get(folderId) ?: return false
+        if (newParentId == folder.parentFolderId) return true // already there
+        if (newParentId != null && isSelfOrDescendant(folderId, newParentId)) {
+            log.w("move: rejected moving folder $folderId into its own subtree ($newParentId)")
+            return false
+        }
+        db.update(folder.copy(parentFolderId = newParentId, updatedAt = Date()))
+        return true
+    }
+
+    /** True when [candidateId] is [folderId] itself or lies anywhere below it. */
+    private suspend fun isSelfOrDescendant(folderId: String, candidateId: String): Boolean {
+        val visited = mutableSetOf<String>()
+        var current: String? = candidateId
+        while (current != null) {
+            if (current == folderId) return true
+            if (!visited.add(current)) {
+                // Parent chain already contains a cycle (e.g. produced by a sync merge
+                // of two concurrent moves) — treat the target as unsafe instead of
+                // walking forever.
+                log.e("isSelfOrDescendant: folder hierarchy cycle detected at $current")
+                return true
+            }
+            current = db.get(current)?.parentFolderId
+        }
+        return false
+    }
 
     suspend fun delete(id: String) {
         db.delete(id)

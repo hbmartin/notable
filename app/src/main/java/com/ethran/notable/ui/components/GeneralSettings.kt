@@ -46,6 +46,15 @@ fun GeneralSettings(
                 onSettingsChange(settings.copy(scribbleToEraseEnabled = isChecked))
             })
 
+        if (settings.scribbleToEraseEnabled) {
+            SettingToggleRow(
+                label = stringResource(R.string.scribble_to_erase_bounding_box),
+                value = settings.scribbleToEraseBoundingBox,
+                onToggle = { isChecked ->
+                    onSettingsChange(settings.copy(scribbleToEraseBoundingBox = isChecked))
+                })
+        }
+
         SettingToggleRow(
             label = stringResource(R.string.enable_smooth_scrolling),
             value = settings.smoothScroll,

@@ -35,11 +35,11 @@ import com.ethran.notable.editor.utils.div
 import com.ethran.notable.editor.utils.divideStrokesFromCut
 import com.ethran.notable.editor.utils.loadHQPagePreview
 import com.ethran.notable.editor.utils.minus
+import com.ethran.notable.editor.utils.offsetStroke
 import com.ethran.notable.editor.utils.plus
 import com.ethran.notable.editor.utils.strokeBounds
 import com.ethran.notable.editor.utils.times
 import com.ethran.notable.editor.utils.toIntOffset
-import com.ethran.notable.gestures.ZOOM_SNAP_THRESHOLD
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.SnackState
 import com.ethran.notable.utils.onError
@@ -52,10 +52,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.math.abs
 import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.system.measureTimeMillis
 
 const val OVERLAP = 2
@@ -69,6 +66,20 @@ data class PageCutMoveResult(
  * Manages the state and rendering of a single page within the editor.
  * It delegates task to PageDataManager, which is responsible for loading data from db,
  * and caching it.
+ *
+ * Responsibilities, and where they are heading (see docs/architecture.md):
+ *
+ * 1. **Viewport geometry** — zoom/scroll state and coordinate transforms between
+ *    screen and page space. The pure math already lives in [PageViewGeometry];
+ *    the thin transform helpers ([toScreenCoordinates], [applyZoom], …) remain
+ *    here because they read the live scroll/zoom state.
+ * 2. **Rendering** — owns [windowedBitmap]/[windowedCanvas] (the screen-sized
+ *    buffer that [com.ethran.notable.editor.canvas.CanvasRefreshManager] pushes
+ *    to the SurfaceView) and the shift/zoom/band redraw logic. Candidate for a
+ *    dedicated renderer component.
+ * 3. **Data access** — strokes/images/height are proxied to [PageDataManager];
+ *    long term, EditorViewModel should talk to PageDataManager directly and
+ *    PageView should only be notified of what to draw.
  */
 class PageView(
     val context: Context,
@@ -333,17 +344,7 @@ class PageView(
         val (_, previousStrokes) = divideStrokesFromCut(strokes, cutLine)
         if (previousStrokes.isEmpty()) return null
 
-        val movedStrokes = previousStrokes.map { stroke ->
-            stroke.copy(
-                points = stroke.points.map { point ->
-                    point.copy(x = point.x + offset.x, y = point.y + offset.y)
-                },
-                top = stroke.top + offset.y,
-                bottom = stroke.bottom + offset.y,
-                left = stroke.left + offset.x,
-                right = stroke.right + offset.x
-            )
-        }
+        val movedStrokes = previousStrokes.map { offsetStroke(it, offset) }
 
         removeStrokes(strokeIds = previousStrokes.map { it.id })
         addStrokes(movedStrokes)
@@ -537,20 +538,6 @@ class PageView(
     }
 
 
-    fun alreadyDrawnRectAfterShift(
-        movement: IntOffset,
-        screenW: Int,
-        screenH: Int
-    ): Rect {
-        val dx = -movement.x
-        val dy = -movement.y
-        val left = max(0, dx)
-        val top = max(0, dy)
-        val right = min(screenW, dx + screenW)
-        val bottom = min(screenH, dy + screenH)
-        return Rect(left, top, right, bottom)
-    }
-
     suspend fun updateScroll(dragDelta: Offset) {
 //        log.d("Update scroll, dragDelta: $dragDelta, scroll: $scroll, zoomLevel.value: $zoomLevel.value")
         // drag delta is in screen coordinates,
@@ -594,7 +581,7 @@ class PageView(
         windowedCanvas.scale(zoomLevel.value, zoomLevel.value)
 
         redrawOutsideRect(
-            alreadyDrawnRectAfterShift(movement.toIntOffset(), width, height),
+            PageViewGeometry.alreadyDrawnRectAfterShift(movement.toIntOffset(), width, height),
             width,
             height
         )
@@ -604,40 +591,14 @@ class PageView(
     }
 
 
-    private fun calculateZoomLevel(
-        scaleDelta: Float,
-        currentZoom: Float,
-    ): Float {
-        // TODO: Better snapping logic
-        val portraitRatio = SCREEN_WIDTH.toFloat() / SCREEN_HEIGHT
-
-        return if (!GlobalAppSettings.current.continuousZoom) {
-            // Discrete zoom mode - snap to either 1.0 or screen ratio
-            if (scaleDelta <= 1.0f) {
-                if (SCREEN_HEIGHT > SCREEN_WIDTH) portraitRatio else 1.0f
-            } else {
-                if (SCREEN_HEIGHT > SCREEN_WIDTH) 1.0f else portraitRatio
-            }
-        } else {
-            // Continuous zoom mode with snap behavior
-            val newZoom = (scaleDelta / 3 + currentZoom).coerceIn(0.1f, 10.0f)
-
-            // Snap to either 1.0 or screen ratio depending on which is closer
-            val snapTarget = if (abs(newZoom - 1.0f) < abs(newZoom - portraitRatio)) {
-                1.0f
-            } else {
-                portraitRatio
-            }
-
-            if (abs(newZoom - snapTarget) < ZOOM_SNAP_THRESHOLD) {
-                log.d("Zoom snap to $snapTarget")
-                snapTarget
-            } else {
-                log.d("Left zoom as is. $newZoom")
-                newZoom
-            }
-        }
-    }
+    private fun calculateZoomLevel(scaleDelta: Float, currentZoom: Float): Float =
+        PageViewGeometry.calculateZoomLevel(
+            scaleDelta = scaleDelta,
+            currentZoom = currentZoom,
+            screenWidth = SCREEN_WIDTH,
+            screenHeight = SCREEN_HEIGHT,
+            continuousZoom = GlobalAppSettings.current.continuousZoom,
+        )
 
     suspend fun simpleUpdateZoom(scaleDelta: Float) {
         log.d("Simple Zoom updated, $scaleDelta")
@@ -773,44 +734,8 @@ class PageView(
 
     fun redrawOutsideRect(dstRect: Rect, screenW: Int, screenH: Int) {
         val scaledOverlap = ceil(OVERLAP * zoomLevel.value.coerceAtLeast(1f)).toInt()
-
-        // Uncovered top band
-        if (dstRect.top > 0) {
-            val r = Rect(
-                0,
-                0,
-                screenW,
-                (dstRect.top + scaledOverlap).coerceAtMost(screenH)
-            )
-            if (!r.isEmpty) drawAreaScreenCoordinates(r)
-        }
-        // Uncovered bottom band
-        if (dstRect.bottom < screenH) {
-            val r = Rect(
-                0, (dstRect.bottom - scaledOverlap).coerceAtLeast(0), screenW, screenH
-            )
-            if (!r.isEmpty) drawAreaScreenCoordinates(r)
-        }
-        // Uncovered left band
-        if (dstRect.left > 0) {
-            val r = Rect(
-                0,
-                (dstRect.top - scaledOverlap).coerceAtLeast(0),
-                (dstRect.left + scaledOverlap).coerceAtMost(screenW),
-                (dstRect.bottom + scaledOverlap).coerceAtMost(screenH)
-            )
-            if (!r.isEmpty) drawAreaScreenCoordinates(r)
-        }
-        // Uncovered right band
-        if (dstRect.right < screenW) {
-            val r = Rect(
-                (dstRect.right - scaledOverlap).coerceAtLeast(0),
-                (dstRect.top - scaledOverlap).coerceAtLeast(0),
-                screenW,
-                (dstRect.bottom + scaledOverlap).coerceAtMost(screenH)
-            )
-            if (!r.isEmpty) drawAreaScreenCoordinates(r)
-        }
+        PageViewGeometry.uncoveredBands(dstRect, screenW, screenH, scaledOverlap)
+            .forEach { drawAreaScreenCoordinates(it) }
     }
 
 

@@ -218,6 +218,24 @@ fun copyStreamToFile(inputStream: InputStream, outputFile: File) {
     }
 }
 
+/**
+ * Cheap magic-header check that [file] really is a PDF document. Guards PDF-only code
+ * paths against image files (e.g. a PNG background) being handed to PdfRenderer.
+ */
+fun isPdfFile(file: File): Boolean {
+    if (!file.isFile) return false
+    val magic = "%PDF-"
+    return try {
+        val header = ByteArray(magic.length)
+        file.inputStream().use { input ->
+            input.read(header) == header.size && String(header, Charsets.US_ASCII) == magic
+        }
+    } catch (e: Exception) {
+        fileUtilsLog.w("isPdfFile: could not read header of $file: ${e.message}")
+        false
+    }
+}
+
 fun getPdfPageCount(uri: String): Int {
     if (uri.isEmpty()) {
         fileUtilsLog.w("getPdfPageCount: Empty URI")
@@ -226,6 +244,11 @@ fun getPdfPageCount(uri: String): Int {
     val file = File(uri)
     if (!file.exists()) {
         fileUtilsLog.w("getPdfPageCount: File does not exist: $uri")
+        return 0
+    }
+    if (!isPdfFile(file)) {
+        // Not an error: callers may probe backgrounds that turn out to be images.
+        fileUtilsLog.w("getPdfPageCount: Not a PDF file: $uri")
         return 0
     }
 
