@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +24,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.deletePage
+import com.ethran.notable.ui.LocalSnackContext
+import com.ethran.notable.ui.SnackConf
+import com.ethran.notable.ui.dialogs.ShowNotebookSelectionDialog
 import com.ethran.notable.ui.noRippleClickable
 import kotlinx.coroutines.launch
 
@@ -31,10 +38,34 @@ fun PageMenu(
     pageId: String,
     index: Int? = null,
     canDelete: Boolean,
+    isQuickPage: Boolean = false,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackManager = LocalSnackContext.current
+    var showMoveToNotebookDialog by remember { mutableStateOf(false) }
+
+    if (showMoveToNotebookDialog) {
+        ShowNotebookSelectionDialog(
+            appRepository = appRepository,
+            title = "Move quick page to notebook:",
+            onCancel = { showMoveToNotebookDialog = false },
+            onConfirm = { selectedBookId ->
+                showMoveToNotebookDialog = false
+                scope.launch {
+                    val moved = appRepository.moveQuickPageToBook(pageId, selectedBookId)
+                    if (!moved) {
+                        snackManager.showOrUpdateSnack(
+                            SnackConf(text = "Could not move page to notebook", duration = 3000)
+                        )
+                    }
+                }
+                onClose()
+            })
+        return
+    }
+
     Popup(
         alignment = Alignment.TopStart,
         onDismissRequest = { onClose() },
@@ -86,6 +117,17 @@ fun PageMenu(
                             }
                         }) {
                     Text("Insert after")
+                }
+            }
+
+            if (isQuickPage) {
+                Box(
+                    Modifier
+                        .padding(10.dp)
+                        .noRippleClickable {
+                            showMoveToNotebookDialog = true
+                        }) {
+                    Text("Move to notebook")
                 }
             }
 

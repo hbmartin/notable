@@ -146,6 +146,32 @@ class AppRepository @Inject constructor(
         return page.id
     }
 
+    /**
+     * Moves a standalone quick page into an existing notebook, appended as its
+     * last page. The page leaves its folder (the notebook now determines where
+     * it lives in the library).
+     *
+     * @return true when the page was moved, false when it doesn't exist,
+     *         already belongs to a notebook, or the notebook doesn't exist.
+     */
+    suspend fun moveQuickPageToBook(pageId: String, notebookId: String): Boolean {
+        val page = pageRepository.getById(pageId) ?: return false
+        if (page.notebookId != null) {
+            log.w("moveQuickPageToBook: page $pageId already belongs to ${page.notebookId}")
+            return false
+        }
+        val book = bookRepository.getById(notebookId) ?: return false
+        pageRepository.update(
+            page.copy(
+                notebookId = book.id,
+                parentFolderId = null,
+                updatedAt = Date()
+            )
+        )
+        bookRepository.addPage(book.id, page.id)
+        return true
+    }
+
     suspend fun newPageInBook(notebookId: String, index: Int = 0): String? {
         try {
             val book = bookRepository.getById(notebookId)
