@@ -75,6 +75,9 @@ fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitma
         } catch (e: Exception) {
             log.e("getOrLoadBackground: Error loading background - ${e.message}", e)
         }
+        // Image decode failed — don't fall through and hand a non-PDF file
+        // to the PDF renderers below.
+        return null
     }
     val targetWidth = SCREEN_WIDTH * (scale.coerceAtMost(2f))
     timer.step("start android Pdf")

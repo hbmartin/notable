@@ -111,7 +111,21 @@ fun BackgroundSelector(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var pageBackground by remember { mutableStateOf(initialPageBackground) }
-    var maxPages: Int? by remember { mutableStateOf(getPdfPageCount(pageBackground)) }
+
+    // Only PDF-type backgrounds have a page count. Probing unconditionally used to
+    // pass image backgrounds (e.g. a .png) to the PDF parser, producing
+    // "Failed to open PDF: file not in PDF format" errors.
+    var maxPages: Int? by remember {
+        mutableStateOf(
+            when (BackgroundType.fromKey(initialPageBackgroundType)) {
+                is BackgroundType.Pdf, BackgroundType.AutoPdf -> getPdfPageCount(
+                    initialPageBackground
+                )
+
+                else -> null
+            }
+        )
+    }
     val currentPage: Int? by remember { mutableIntStateOf(initialPageNumberInPdf) }
 
     var pageBackgroundType: BackgroundType by remember {
