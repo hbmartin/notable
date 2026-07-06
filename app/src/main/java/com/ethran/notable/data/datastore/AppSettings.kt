@@ -60,6 +60,8 @@ data class AppSettings(
     val holdAction: GestureAction = GestureAction.Select,
     val enableQuickNav: Boolean = true,
     val renameOnCreate: Boolean = true,
+    // Turn pages in the editor with the volume / page-turn hardware buttons.
+    val volumeButtonPageTurn: Boolean = false,
 
     // Debug
     val showWelcome: Boolean = true,

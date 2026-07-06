@@ -58,6 +58,12 @@ object CanvasEventBus {
 
     val changePage = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
+    // Hardware page-turn requests (volume / page-turn buttons), forwarded from
+    // MainActivity key events. true = next page, false = previous page. Collected by
+    // EditorView while an editor is open; MainActivity checks subscriptionCount to
+    // know whether to consume the key event.
+    val hardwarePageTurn = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+
 
     suspend fun waitForDrawing() {
         Log.d(

@@ -37,6 +37,13 @@ fun GesturesSettings(
             onToggle = { isChecked ->
                 onSettingsChange(settings.copy(enableQuickNav = isChecked))
             })
+
+        SettingToggleRow(
+            label = stringResource(R.string.volume_button_page_turn),
+            value = settings.volumeButtonPageTurn,
+            onToggle = { isChecked ->
+                onSettingsChange(settings.copy(volumeButtonPageTurn = isChecked))
+            })
     }
 }
 

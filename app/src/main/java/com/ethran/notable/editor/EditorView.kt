@@ -186,6 +186,15 @@ fun EditorView(
             }
         }
 
+        // Hardware page-turn buttons (volume / page keys), forwarded by MainActivity.
+        LaunchedEffect(Unit) {
+            CanvasEventBus.hardwarePageTurn.collect { isNext ->
+                log.d("Hardware page turn: ${if (isNext) "next" else "previous"}")
+                if (isNext) editorControlTower.goToNextPage()
+                else editorControlTower.goToPreviousPage()
+            }
+        }
+
         // Handle focus changes from Canvas
 //        LaunchedEffect(Unit) {
 //            CanvasEventBus.onFocusChange.collect { hasFocus ->

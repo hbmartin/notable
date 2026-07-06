@@ -3,6 +3,7 @@ package com.ethran.notable
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -199,6 +200,36 @@ class MainActivity : ComponentActivity() {
         this.lifecycleScope.launch {
             CanvasEventBus.reinitSignal.emit(Unit)
         }
+    }
+
+    /**
+     * True for volume / page-turn keys that should flip pages: the setting is enabled
+     * and an editor is open (it subscribes to [CanvasEventBus.hardwarePageTurn]).
+     * Outside the editor the keys keep their system behaviour.
+     */
+    private fun isPageTurnKey(keyCode: Int): Boolean {
+        if (!GlobalAppSettings.current.volumeButtonPageTurn) return false
+        if (CanvasEventBus.hardwarePageTurn.subscriptionCount.value == 0) return false
+        return keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == KeyEvent.KEYCODE_PAGE_DOWN || keyCode == KeyEvent.KEYCODE_PAGE_UP
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isPageTurnKey(keyCode)) {
+            val isNext = keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                    || keyCode == KeyEvent.KEYCODE_PAGE_DOWN
+            lifecycleScope.launch {
+                CanvasEventBus.hardwarePageTurn.emit(isNext)
+            }
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        // Consume the matching key-up so the system volume UI doesn't react.
+        if (isPageTurnKey(keyCode)) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     override fun onPause() {

@@ -36,6 +36,7 @@
     <string name="gestures_two_finger_swipe_left_action">Two Finger Swipe Left Action</string>
     <string name="gestures_two_finger_swipe_right_action">Two Finger Swipe Right Action</string>
     <string name="enable_quick_nav">Touch with three fingers to open QuickNav</string>
+    <string name="volume_button_page_turn">Turn pages with volume / page-turn buttons</string>
     <string name="work_in_progress">(work in progress)</string>
     <string name="toolbar_position_top">Top</string>
     <string name="toolbar_position_bottom">Bottom</string>
