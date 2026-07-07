@@ -38,6 +38,7 @@ import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.buffer
@@ -70,6 +71,8 @@ data class CachedBackground(val path: String, val pageNumber: Int, val scale: Fl
         }
     }
 }
+
+private const val NOTEBOOK_TOUCH_DEBOUNCE_MS = 5_000L
 
 // Cache manager companion object
 @Singleton
@@ -659,10 +662,32 @@ class PageDataManager @Inject constructor(
         }
     }
 
-    private suspend fun updateParentNotebookTimestamp() {
+    // Every pen action lands here; writing the notebook row each time would
+    // rewrite it dozens of times per minute (and dirty sync state just as often),
+    // so touches are collected and flushed at most once per debounce window.
+    private val pendingNotebookTouches = mutableSetOf<String>()
+    private var notebookTouchFlushJob: Job? = null
+
+    private fun updateParentNotebookTimestamp() {
         val notebookId = pageFromDb?.notebookId ?: return
-        val notebook = appRepository.bookRepository.getById(notebookId) ?: return
-        appRepository.bookRepository.update(notebook)
+        synchronized(pendingNotebookTouches) {
+            pendingNotebookTouches.add(notebookId)
+            if (notebookTouchFlushJob?.isActive != true) {
+                notebookTouchFlushJob = dataScope.launch {
+                    delay(NOTEBOOK_TOUCH_DEBOUNCE_MS)
+                    flushPendingNotebookTouches()
+                }
+            }
+        }
+    }
+
+    private suspend fun flushPendingNotebookTouches() {
+        val toTouch = synchronized(pendingNotebookTouches) {
+            val copy = pendingNotebookTouches.toList()
+            pendingNotebookTouches.clear()
+            copy
+        }
+        toTouch.forEach { appRepository.bookRepository.touch(it) }
     }
 
     fun setScrollInDb() {

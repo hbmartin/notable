@@ -35,12 +35,6 @@ jobs:
           fileName: "my.keystore"
           encodedString: ${{ secrets.KEYSTORE_FILE }}
 
-      - name: Decode and Replace `google-services.json`
-        env:
-          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
-        run: |
-          echo $FIREBASE_CONFIG | base64 --decode > ${{ github.workspace }}/app/google-services.json
-
       - name: Execute Gradle build
         env:
           STORE_FILE: ${{ github.workspace }}/secrets/my.keystore
@@ -81,12 +75,16 @@ jobs:
         id: android_version
 
 
-      - name: Rename APK
-        run: mv ${{ github.workspace }}/app/build/outputs/apk/release/app-release.apk ${{ github.workspace }}/app/build/outputs/apk/release/notable-${{ env.VERSION_NAME }}.apk
+      - name: Rename APKs
+        run: |
+          cd ${{ github.workspace }}/app/build/outputs/apk/release
+          mv app-universal-release.apk notable-${{ env.VERSION_NAME }}.apk
+          mv app-arm64-v8a-release.apk notable-${{ env.VERSION_NAME }}-arm64-v8a.apk
+          mv app-armeabi-v7a-release.apk notable-${{ env.VERSION_NAME }}-armeabi-v7a.apk
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ github.workspace }}/app/build/outputs/apk/release/notable-${{ env.VERSION_NAME }}.apk
+          files: ${{ github.workspace }}/app/build/outputs/apk/release/notable-*.apk
           tag_name: v${{ env.VERSION_NAME }}
           token: ${{ secrets.TOKEN }}

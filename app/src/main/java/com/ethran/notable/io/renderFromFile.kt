@@ -6,8 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import com.ethran.notable.SCREEN_WIDTH
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.utils.Timing
@@ -48,7 +46,6 @@ fun uriToBitmap(context: Context, uri: Uri): Bitmap? {
 
 
 fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitmap? {
-    // TODO: it's very slow, needs to be changed for better tool
     if (filePath.isEmpty()) return null
     ensureNotMainThread("loadBackgroundBitmap")
     log.v("Reloading background, path: $filePath, scale: $scale")
@@ -61,7 +58,10 @@ fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitma
     if (!filePath.endsWith(".pdf", ignoreCase = true)) {
         try {
             timer.step("decode bitmap image")
-            val result = BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+            val result = decodeImageDownsampled(
+                file,
+                targetWidth = (SCREEN_WIDTH * scale.coerceAtMost(2f)).toInt()
+            )
             if (result == null)
                 log.e(
                     "loadBackgroundBitmap: result is null, couldn't decode image, file name ends with ${
@@ -71,7 +71,7 @@ fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitma
                     }"
                 )
             timer.end("loaded background")
-            return result?.asAndroidBitmap()
+            return result
         } catch (e: Exception) {
             log.e("getOrLoadBackground: Error loading background - ${e.message}", e)
         }
@@ -88,4 +88,24 @@ fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitma
         renderPdfPageAndroid(file, pageNumber, targetWidth.toInt(), resolutionModifier = 1.2f)
     timer.end("loaded background")
     return newBitmap
+}
+
+/**
+ * Decodes an image file at roughly [targetWidth], using [BitmapFactory.Options.inSampleSize]
+ * so a camera-sized photo is not decoded at full resolution just to be drawn
+ * as a page background.
+ */
+private fun decodeImageDownsampled(file: File, targetWidth: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    var sampleSize = 1
+    if (targetWidth > 0) {
+        while (bounds.outWidth / (sampleSize * 2) >= targetWidth) {
+            sampleSize *= 2
+        }
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return BitmapFactory.decodeFile(file.absolutePath, options)
 }

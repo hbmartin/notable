@@ -1,25 +1,46 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Keep line numbers for readable release stack traces (file names hidden).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Onyx SDK -----------------------------------------------------------
+# The Onyx e-ink SDK resolves device/driver classes reflectively and talks
+# to system services by class name; shrinking or renaming it breaks pen
+# input on Boox devices.
+-keep class com.onyx.** { *; }
+-dontwarn com.onyx.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# --- MuPDF (fitz) -------------------------------------------------------
+# JNI: native code instantiates Java classes and calls methods by name.
+-keep class com.artifex.mupdf.fitz.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep native method names in general so JNI registration keeps working.
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
 
-# Ignore optional dependencies used by libraries
-#-dontwarn org.joda.convert.FromString
-#-dontwarn org.joda.convert.ToString
+# --- ShipBook logging SDK -----------------------------------------------
+-keep class io.shipbook.shipbooksdk.** { *; }
+-dontwarn io.shipbook.shipbooksdk.**
+
+# ShipBook depends on the SLF4J API without a bundled backend.
+-dontwarn org.slf4j.**
+
+# --- HiddenApiBypass (deep reflection into java.lang) ---------------------
+-keep class org.lsposed.hiddenapibypass.** { *; }
+
+# --- kotlinx.serialization ------------------------------------------------
+# @Serializable app models (Room type converters, sync payloads) are looked
+# up through generated companion serializers.
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+-keepclassmembers class com.ethran.notable.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.ethran.notable.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.ethran.notable.**$$serializer { *; }
+
+# --- Optional/compile-only references pulled in by libraries --------------
+-dontwarn org.joda.convert.FromString
+-dontwarn org.joda.convert.ToString
+-dontwarn java.lang.management.**

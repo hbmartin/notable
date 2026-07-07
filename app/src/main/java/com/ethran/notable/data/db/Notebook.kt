@@ -65,6 +65,9 @@ interface NotebookDao {
     @Query("UPDATE notebook SET pageIds=:pageIds WHERE id=:id")
     suspend fun setPageIds(id: String, pageIds: List<String>)
 
+    @Query("UPDATE notebook SET updatedAt=:updatedAt WHERE id=:id")
+    suspend fun setUpdatedAt(id: String, updatedAt: Date)
+
     @Insert
     suspend fun create(notebook: Notebook): Long
 
@@ -114,6 +117,14 @@ class BookRepository @Inject constructor(
      */
     suspend fun updatePreservingTimestamp(notebook: Notebook) {
         notebookDao.update(notebook)
+    }
+
+    /**
+     * Bump only the notebook's updatedAt column, without rewriting the rest of
+     * the row (which could clobber concurrent changes to e.g. pageIds).
+     */
+    suspend fun touch(notebookId: String) {
+        notebookDao.setUpdatedAt(notebookId, Date())
     }
 
     fun getAllInFolder(folderId: String? = null): LiveData<List<Notebook>> {

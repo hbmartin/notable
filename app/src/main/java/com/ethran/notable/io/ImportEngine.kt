@@ -7,7 +7,6 @@ import com.ethran.notable.data.db.BookRepository
 import com.ethran.notable.data.db.ImageRepository
 import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.PageRepository
-import com.ethran.notable.data.db.PageWithData
 import com.ethran.notable.data.db.StrokeRepository
 import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.events.AppEventBus
@@ -21,30 +20,9 @@ import javax.inject.Inject
 
 
 /**
- * Defines the strategy to resolve conflicts when importing a book that already exists in the database.
- */
-enum class ImportConflictStrategy {
-    /** If a book with the same ID exists, overwrite it completely with the imported file. */
-    OVERWRITE,
-
-    /** On conflicts, merge changes, choosing the most recent change based on timestamps. */
-    MERGE_TIME_BASED,
-
-    /** On conflicts, prioritize the version of the data already in the database. */
-    PRIORITIZE_DATABASE,
-
-    /** On conflicts, prioritize the version of the data from the imported file. */
-    PRIORITIZE_FILE,
-
-    /** If conflicts are found, ask the user for resolution (not implemented). */
-    ASK
-}
-
-/**
  * Configuration options for an import operation.
- * @param saveToBookId If specified, attempts to save the imported data into an existing book with this ID. If null, a new book is created.
+ * @param saveToBookId If specified, the imported pages are appended to the existing book with this ID. If null, a new book is created.
  * @param folderId If specified, the new notebook will be created in this folder.
- * @param conflictStrategy The strategy to use for resolving conflicts.
  * @param linkToExternalFile If true, the app will link to the original file URI instead of copying it. This is applicable for file types like PDF.
  * @param fileType If specified, the app will only import files of this type.
  * @param bookTitle If specified, the filename will be overwritten to this value.
@@ -52,7 +30,6 @@ enum class ImportConflictStrategy {
 data class ImportOptions(
     val saveToBookId: String? = null,
     val folderId: String? = null,
-    val conflictStrategy: ImportConflictStrategy? = null,
     val linkToExternalFile: Boolean = false,
     val fileType: String? = null,
     val bookTitle: String? = null
@@ -105,9 +82,6 @@ class ImportEngine @Inject constructor(
             bookTitle
         }
 
-        if (options.saveToBookId != null)
-            TODO("Implement logic to save into an existing book (ID: ${options.saveToBookId})")
-
         val optionsWithTitle = options.copy(
             bookTitle = finalTitle,
         )
@@ -123,19 +97,40 @@ class ImportEngine @Inject constructor(
         }
     }
 
+    /**
+     * Returns the book the imported pages should land in: the existing book named by
+     * [ImportOptions.saveToBookId], or a freshly created one built by [createBook].
+     */
+    private suspend fun resolveTargetBook(
+        options: ImportOptions,
+        createBook: () -> Notebook
+    ): AppResult<Notebook, DomainError> {
+        val existingId = options.saveToBookId
+            ?: return AppResult.Success(createBook().also { bookRepo.createEmpty(it) })
+        val existing = bookRepo.getById(existingId)
+            ?: return AppResult.Error(
+                DomainError.UnexpectedState("Cannot import into book $existingId: it does not exist.")
+            )
+        return AppResult.Success(existing)
+    }
+
     private suspend fun handleImportXopp(
         uri: Uri,
         options: ImportOptions
     ): AppResult<List<String>, DomainError> {
         log.d("Importing Xopp file...")
         require(options.bookTitle != null) { "bookTitle cannot be null when importing Xopp file" }
-        val book = Notebook(
-            title = options.bookTitle,
-            parentFolderId = options.folderId,
-            defaultBackground = "blank",
-            defaultBackgroundType = BackgroundType.Native.key
-        )
-        bookRepo.createEmpty(book)
+        val book = when (val target = resolveTargetBook(options) {
+            Notebook(
+                title = options.bookTitle,
+                parentFolderId = options.folderId,
+                defaultBackground = "blank",
+                defaultBackgroundType = BackgroundType.Native.key
+            )
+        }) {
+            is AppResult.Success -> target.data
+            is AppResult.Error -> return AppResult.Error(target.error)
+        }
 
         val importedPageIds = mutableListOf<String>()
         var persistentError: DomainError? = null
@@ -192,13 +187,17 @@ class ImportEngine @Inject constructor(
 
         val filePath = fileToSave.toString()
 
-        val book = Notebook(
-            title = options.bookTitle,
-            parentFolderId = options.folderId,
-            defaultBackground = filePath,
-            defaultBackgroundType = BackgroundType.AutoPdf.key
-        )
-        bookRepo.createEmpty(book)
+        val book = when (val target = resolveTargetBook(options) {
+            Notebook(
+                title = options.bookTitle,
+                parentFolderId = options.folderId,
+                defaultBackground = filePath,
+                defaultBackgroundType = BackgroundType.AutoPdf.key
+            )
+        }) {
+            is AppResult.Success -> target.data
+            is AppResult.Error -> return AppResult.Error(target.error)
+        }
 
         val importedPageIds = mutableListOf<String>()
         var persistentError: DomainError? = null
@@ -221,20 +220,6 @@ class ImportEngine @Inject constructor(
         }
 
         return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(importedPageIds)
-    }
-
-
-    private fun merge(fileData: PageWithData, options: ImportOptions) {
-        require(options.saveToBookId != null) { "saveToBookId cannot be null when merging" }
-        require(options.conflictStrategy != null) { "conflictStrategy cannot be null when merging" }
-        log.d("Conflict detected. Strategy: ${options.conflictStrategy}")
-        when (options.conflictStrategy) {
-            ImportConflictStrategy.OVERWRITE -> TODO()
-            ImportConflictStrategy.MERGE_TIME_BASED -> TODO()
-            ImportConflictStrategy.PRIORITIZE_DATABASE -> TODO()
-            ImportConflictStrategy.PRIORITIZE_FILE -> TODO()
-            ImportConflictStrategy.ASK -> TODO()
-        }
     }
 
 

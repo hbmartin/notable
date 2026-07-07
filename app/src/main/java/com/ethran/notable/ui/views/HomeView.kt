@@ -25,8 +25,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.Badge
 import androidx.compose.material.BadgedBox
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ethran.notable.R
 import com.ethran.notable.data.AppRepository
+import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.db.Notebook
@@ -71,11 +75,14 @@ import com.ethran.notable.ui.noRippleClickable
 import com.ethran.notable.ui.viewmodels.LibraryUiState
 import com.ethran.notable.ui.viewmodels.LibraryViewModel
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronDown
 import compose.icons.feathericons.FilePlus
 import compose.icons.feathericons.Folder
 import compose.icons.feathericons.FolderPlus
+import compose.icons.feathericons.Search
 import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Upload
+import compose.icons.feathericons.X
 import io.shipbook.shipbooksdk.ShipBook
 
 
@@ -137,8 +144,9 @@ fun Library(
         onCreateNewNotebook = viewModel::onCreateNewNotebook,
         onImportPdf = viewModel::onPdfFile,
         onImportXopp = viewModel::onXoppFile,
-        onPreviewMissing = viewModel::onPreviewRequested
-
+        onPreviewMissing = viewModel::onPreviewRequested,
+        onSearchQueryChange = viewModel::setSearchQuery,
+        onSortOrderChange = viewModel::setSortOrder
     )
 }
 
@@ -160,7 +168,9 @@ fun LibraryContent(
     onCreateNewNotebook: () -> Unit,
     onImportPdf: (Uri, Boolean) -> Unit,
     onImportXopp: (Uri) -> Unit,
-    onPreviewMissing: (String) -> Unit
+    onPreviewMissing: (String) -> Unit,
+    onSearchQueryChange: (String) -> Unit = {},
+    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize()) {
         Topbar {
@@ -190,6 +200,20 @@ fun LibraryContent(
         }
 
         Column(Modifier.padding(10.dp)) {
+            Spacer(Modifier.height(10.dp))
+
+            LibrarySearchSortBar(
+                searchQuery = uiState.searchQuery,
+                sortOrder = uiState.sortOrder,
+                onSearchQueryChange = onSearchQueryChange,
+                onSortOrderChange = onSortOrderChange
+            )
+
+            if (uiState.searchQuery.isNotBlank() && uiState.folders.isEmpty() && uiState.books.isEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(text = stringResource(R.string.home_no_search_results), color = Color.Gray)
+            }
+
             Spacer(Modifier.height(10.dp))
 
             FolderList(
@@ -229,6 +253,96 @@ fun LibraryContent(
     }
 
 
+}
+
+@Composable
+fun LibrarySearchSortBar(
+    searchQuery: String,
+    sortOrder: AppSettings.LibrarySortOrder,
+    onSearchQueryChange: (String) -> Unit,
+    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .weight(1f)
+                .border(0.5.dp, Color.Black)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = FeatherIcons.Search, contentDescription = null,
+                Modifier.height(16.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.home_search_hint),
+                                color = Color.Gray
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (searchQuery.isNotEmpty()) {
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = FeatherIcons.X,
+                    contentDescription = stringResource(R.string.home_clear_search),
+                    modifier = Modifier
+                        .height(16.dp)
+                        .noRippleClickable { onSearchQueryChange("") }
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Box {
+            var isSortMenuOpen by remember { mutableStateOf(false) }
+            Row(
+                Modifier
+                    .border(0.5.dp, Color.Black)
+                    .noRippleClickable { isSortMenuOpen = true }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = sortOrderLabel(sortOrder))
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = FeatherIcons.ChevronDown,
+                    contentDescription = stringResource(R.string.home_sort),
+                    Modifier.height(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = isSortMenuOpen,
+                onDismissRequest = { isSortMenuOpen = false }
+            ) {
+                AppSettings.LibrarySortOrder.entries.forEach { order ->
+                    DropdownMenuItem(onClick = {
+                        isSortMenuOpen = false
+                        onSortOrderChange(order)
+                    }) {
+                        Text(text = sortOrderLabel(order))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun sortOrderLabel(order: AppSettings.LibrarySortOrder): String = when (order) {
+    AppSettings.LibrarySortOrder.RecentlyCreated -> stringResource(R.string.home_sort_recently_created)
+    AppSettings.LibrarySortOrder.RecentlyModified -> stringResource(R.string.home_sort_recently_modified)
+    AppSettings.LibrarySortOrder.Name -> stringResource(R.string.home_sort_name)
 }
 
 @Composable
@@ -321,7 +435,7 @@ fun NotebookGrid(
         }
 
         if (books.isNotEmpty()) {
-            items(books.reversed()) { book ->
+            items(books) { book ->
                 if (book.pageIds.isEmpty()) {
                     if (!isImporting) {
                         EmptyBookWarningHandler(
