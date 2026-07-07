@@ -53,7 +53,7 @@ All sync code lives in `com.ethran.notable.sync`. The components and their respo
 | [`SyncOrchestrator.kt`](../app/src/main/java/com/ethran/notable/sync/SyncOrchestrator.kt)                           | Core orchestrator. Full sync flow, per-notebook trigger, deletion upload. Holds the shared `syncMutex` (companion object) for process-wide concurrency control. Delegates progress/state reporting to `SyncProgressReporter`. |
 | [`SyncPreflightService.kt`](../app/src/main/java/com/ethran/notable/sync/SyncPreflightService.kt)                   | Pre-sync checks and server directory bootstrap (`/notable`, `/notebooks`, `/deletions`).                                                                           |
 | [`FolderSyncService.kt`](../app/src/main/java/com/ethran/notable/sync/FolderSyncService.kt)                         | Folder hierarchy sync (folders.json merge + upsert).                                                                                                               |
-| [`NotebookReconciliationService.kt`](../app/src/main/java/com/ethran/notable/sync/NotebookReconciliationService.kt) | Per-notebook conflict decision (upload/download/no-op) based on manifest timestamps. Reports per-item progress via `SyncProgressReporter.beginItem`/`endItem`.     |
+| [`NotebookReconciliationService.kt`](../app/src/main/java/com/ethran/notable/sync/NotebookReconciliationService.kt) | Per-notebook conflict decision (upload/merge/no-op) based on manifest timestamps; diverged notebooks are merged page-by-page via `decidePageAction`. Reports per-item progress via `SyncProgressReporter.beginItem`/`endItem`. |
 | [`NotebookSyncService.kt`](../app/src/main/java/com/ethran/notable/sync/NotebookSyncService.kt)                     | Per-notebook upload/download execution. Reports per-item progress via `SyncProgressReporter.beginItem`/`endItem` when downloading new notebooks.                   |
 | [`SyncProgressReporter.kt`](../app/src/main/java/com/ethran/notable/sync/SyncProgressReporter.kt)                   | `@Singleton` owner of the `SyncState` `StateFlow`. Interface + `SyncProgressReporterImpl` + Hilt `@Binds` module + `SyncProgressReporterEntryPoint`. Write-side API: `beginStep`, `beginItem`, `endItem`, `finishSuccess`, `finishError`, `reset`. Read-side: `state`. Consumers inject `SyncProgressReporter` rather than touching `SyncOrchestrator` for state. |
 | [`SyncForceService.kt`](../app/src/main/java/com/ethran/notable/sync/SyncForceService.kt)                           | Force upload/download flows (full side replacement) used by settings actions.                                                                                      |
@@ -127,9 +127,11 @@ operations on a single device (see section 7.2 for multi-device concurrency).
 
 ### 3.2 Per-Notebook Upload
 
-Conflict detection is at the **notebook level** (manifest `updatedAt`). Individual pages are
-uploaded as separate files, but if two devices have edited different pages of the same notebook, the
-device with the newer `updatedAt` wins the entire notebook (see section 5.6).
+Conflict *detection* is at the **notebook level** (manifest `updatedAt`), but resolution is
+per page: notebook metadata and page membership follow the newer manifest, while each page's
+content is decided by the page's own `updatedAt` (`decidePageAction` in `PageMerge.kt`,
+applied by `NotebookReconciliationService.mergeNotebook`). Edits to different pages of the
+same notebook made on different devices both survive (see section 5.2).
 
 ```
 uploadNotebook(notebook):
@@ -334,8 +336,9 @@ All serializers use `kotlinx.serialization` with:
 
 ### 5.1 Strategy: Last-Writer-Wins with Resurrection
 
-The sync system uses **timestamp-based last-writer-wins** at the notebook level. This is a
-deliberate simplicity tradeoff:
+The sync system uses **timestamp-based last-writer-wins**: at the notebook level for
+metadata and page membership, and per page for page content. This is a deliberate
+simplicity tradeoff:
 
 - **Simpler than CRDT or operational transform.** These are powerful but add substantial complexity
   and are difficult to get right for a handwriting/drawing app where strokes are the atomic unit.
@@ -352,10 +355,16 @@ When both local and remote versions of a notebook exist:
 ```
 diffMs = local.updatedAt - remote.updatedAt
 
-if diffMs > +1000ms  → local is newer  → upload
-if diffMs < -1000ms  → remote is newer → download
+if diffMs > +1000ms  → local manifest is newer  → merge (local wins metadata/membership)
+if diffMs < -1000ms  → remote manifest is newer → merge (remote wins metadata/membership)
 if |diffMs| <= 1000ms → within tolerance → skip (considered equal)
 ```
+
+Within a merge, the same comparison is applied per page using the page's own `updatedAt`
+(remote value read from the page JSON header): the newer side's page content is kept —
+uploaded if local is newer, applied locally if remote is newer, skipped if within
+tolerance. In upload-only mode no merge happens; the pre-merge behavior (upload wholesale
+or `SyncUploadOnlySkip`) is preserved.
 
 The 1-second tolerance exists because timestamps pass through ISO 8601 serialization (which
 truncates to seconds) and through different system clocks. Without tolerance, rounding artifacts
@@ -416,9 +425,11 @@ misidentified as a local deletion.
 
 ### 5.7 Known Limitations
 
-- **Page-level conflicts are not merged.** If two devices edit different pages of the same notebook,
-  the entire notebook is overwritten by the newer version. Stroke-level or page-level merging is a
-  potential future enhancement.
+- **Merging is per page, not per stroke.** If two devices edit the *same page*, the newer
+  page wins wholesale; stroke-level merging is a potential future enhancement. Page
+  membership follows the newer manifest, so a page added on the older side while the other
+  device removed pages can be dropped from the notebook (its data remains in the local
+  database but unreferenced).
 - **No conflict UI.** There is no mechanism to present both versions to the user and let them
   choose. Last-writer-wins is applied automatically.
 - **Folder deletion is not cascaded across devices.** Deleting a folder locally does not propagate

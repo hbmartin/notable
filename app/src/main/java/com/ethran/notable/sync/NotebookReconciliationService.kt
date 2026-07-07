@@ -1,11 +1,14 @@
 package com.ethran.notable.sync
 
 import com.ethran.notable.data.AppRepository
+import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.sync.serializers.NotebookSerializer
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
 import com.ethran.notable.utils.flatMap
+import com.ethran.notable.utils.fold
 import com.ethran.notable.utils.onError
+import com.ethran.notable.utils.onFailure
 import com.ethran.notable.utils.plus
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -78,18 +81,33 @@ class NotebookReconciliationService @Inject constructor(
                         if (uploadOnly) {
                             AppResult.Error(DomainError.SyncUploadOnlySkip(localNotebook.title))
                         } else {
-                            notebookSyncService.downloadNotebook(
-                                notebookId,
-                                webdavClient
+                            mergeNotebook(
+                                localNotebook,
+                                remoteManifestJson,
+                                remoteEtag,
+                                webdavClient,
+                                remoteIsNewer = true
                             )
                         }
                     }
 
-                    diffMs > TIMESTAMP_TOLERANCE_MS -> notebookSyncService.uploadNotebook(
-                        localNotebook,
-                        webdavClient,
-                        manifestIfMatch = remoteEtag
-                    )
+                    diffMs > TIMESTAMP_TOLERANCE_MS -> {
+                        if (uploadOnly) {
+                            notebookSyncService.uploadNotebook(
+                                localNotebook,
+                                webdavClient,
+                                manifestIfMatch = remoteEtag
+                            )
+                        } else {
+                            mergeNotebook(
+                                localNotebook,
+                                remoteManifestJson,
+                                remoteEtag,
+                                webdavClient,
+                                remoteIsNewer = false
+                            )
+                        }
+                    }
 
                     else -> {
                         logger.i(
@@ -103,6 +121,99 @@ class NotebookReconciliationService @Inject constructor(
         } else {
             notebookSyncService.uploadNotebook(localNotebook, webdavClient)
         }
+    }
+
+    /**
+     * Reconciles a notebook that differs between this device and the server.
+     *
+     * Notebook metadata and page *membership* still follow the newer manifest
+     * (last-writer-wins, unchanged from before), but each page's *content* is
+     * decided by the page's own updatedAt via [decidePageAction]. Edits made to
+     * different pages of the same notebook on different devices both survive;
+     * previously the newer side's whole notebook silently overwrote the other.
+     *
+     * Pages whose timestamps agree within tolerance are not transferred at all.
+     */
+    private suspend fun mergeNotebook(
+        localNotebook: Notebook,
+        remoteManifestJson: String,
+        remoteEtag: String,
+        webdavClient: WebDAVClient,
+        remoteIsNewer: Boolean
+    ): AppResult<Unit, DomainError> {
+        val notebookId = localNotebook.id
+        val remoteNotebook = NotebookSerializer.deserializeManifest(remoteManifestJson)
+            .onFailure { return AppResult.Error(it) }
+
+        logger.i(
+            TAG,
+            "Merging '${localNotebook.title}' page-by-page " +
+                    "(${if (remoteIsNewer) "remote" else "local"} manifest wins membership)"
+        )
+
+        var persistentError: DomainError? = null
+
+        if (remoteIsNewer) {
+            try {
+                appRepository.bookRepository.updatePreservingTimestamp(remoteNotebook)
+            } catch (e: Exception) {
+                return AppResult.Error(
+                    DomainError.DatabaseError("Failed to update notebook locally: ${e.message}")
+                )
+            }
+        }
+
+        val pageIds = if (remoteIsNewer) remoteNotebook.pageIds else localNotebook.pageIds
+        for (pageId in pageIds) {
+            val localPage = appRepository.pageRepository.getById(pageId)
+            val pagePath = SyncPaths.pageFile(notebookId, pageId)
+            val remoteBytes = if (webdavClient.exists(pagePath)) {
+                webdavClient.getFile(pagePath).fold(
+                    onSuccess = { it },
+                    onError = { error ->
+                        logger.w(TAG, "Failed to fetch remote page $pageId: ${error.userMessage}")
+                        null
+                    }
+                )
+            } else {
+                null
+            }
+            val remoteUpdatedAt = remoteBytes?.let {
+                NotebookSerializer.getPageUpdatedAt(it.decodeToString())
+            }
+
+            val action = decidePageAction(
+                localPage?.updatedAt, remoteUpdatedAt, TIMESTAMP_TOLERANCE_MS
+            )
+            val result = when (action) {
+                PageSyncAction.UPLOAD_LOCAL -> localPage?.let {
+                    notebookSyncService.uploadPage(it, notebookId, webdavClient)
+                }
+
+                PageSyncAction.APPLY_REMOTE -> notebookSyncService.downloadPage(
+                    pageId, notebookId, webdavClient, preloadedBytes = remoteBytes
+                )
+
+                PageSyncAction.SKIP -> null
+            }
+            result?.onError { error ->
+                persistentError = persistentError?.let { it + error } ?: error
+            }
+        }
+
+        if (!remoteIsNewer) {
+            val manifestJson = NotebookSerializer.serializeManifest(localNotebook)
+            webdavClient.putFile(
+                SyncPaths.manifestFile(notebookId),
+                manifestJson.toByteArray(),
+                "application/json",
+                ifMatch = remoteEtag
+            ).onError { error ->
+                persistentError = persistentError?.let { it + error } ?: error
+            }
+        }
+
+        return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(Unit)
     }
 
     companion object {
