@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ethran.notable.data.AppRepository
+import com.ethran.notable.data.events.DefaultAppEventBus
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.datastore.EditorSettingCacheManager
 import com.ethran.notable.data.db.AppDatabase
@@ -159,7 +160,7 @@ class EditorSelectionThreadSafetyTests {
         val folderRepository = FolderRepository(db.folderDao())
 
         val kvRepository = KvRepository(db.kvDao(), context)
-        val kvProxy = KvProxy(kvRepository, CryptoHelper())
+        val kvProxy = KvProxy(kvRepository, CryptoHelper(), DefaultAppEventBus())
 
         val appRepository = AppRepository(
             bookRepository = bookRepository,

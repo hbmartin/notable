@@ -277,6 +277,20 @@ object NotebookSerializer {
         }
     }
 
+    /**
+     * Get updated timestamp from a page JSON without decoding strokes/images
+     * (PageHeaderDto + ignoreUnknownKeys skips the heavy fields).
+     */
+    fun getPageUpdatedAt(jsonString: String): Date? {
+        return try {
+            val header = json.decodeFromString<PageHeaderDto>(jsonString)
+            parseIso8601(header.updatedAt)
+        } catch (e: Exception) {
+            logCallStack(reason = "Failed to parse updated timestamp from page json: ${e.message}")
+            null
+        }
+    }
+
     // ===== Data Transfer Objects =====
 
     @Serializable
@@ -293,6 +307,11 @@ object NotebookSerializer {
         val createdAt: String,
         val updatedAt: String,
         val serverTimestamp: String
+    )
+
+    @Serializable
+    private data class PageHeaderDto(
+        val updatedAt: String
     )
 
     @Serializable

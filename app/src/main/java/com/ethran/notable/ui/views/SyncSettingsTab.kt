@@ -488,6 +488,16 @@ fun SyncCredentialFields(
         )
     }
 
+    if (settings.serverUrl.startsWith("http://", ignoreCase = true)) {
+        Text(
+            text = stringResource(R.string.sync_server_url_http_warning),
+            style = MaterialTheme.typography.caption,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colors.onSurface,
+            modifier = Modifier.padding(top = 2.dp, start = 4.dp)
+        )
+    }
+
     Spacer(modifier = Modifier.height(16.dp))
 
     EInkTextField(

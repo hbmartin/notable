@@ -197,7 +197,7 @@ class NotebookSyncService @Inject constructor(
         }
     }
 
-    private suspend fun uploadPage(
+    internal suspend fun uploadPage(
         page: Page,
         notebookId: String,
         webdavClient: WebDAVClient
@@ -293,15 +293,17 @@ class NotebookSyncService @Inject constructor(
         else AppResult.Success(Unit)
     }
 
-    private suspend fun downloadPage(
+    internal suspend fun downloadPage(
         pageId: String,
         notebookId: String,
-        webdavClient: WebDAVClient
+        webdavClient: WebDAVClient,
+        preloadedBytes: ByteArray? = null
     ): AppResult<Unit, DomainError> {
 
-        // 1. Fetch JSON file (Early Return on error)
-        val pageBytes = webdavClient.getFile(SyncPaths.pageFile(notebookId, pageId))
-            .onFailure { return AppResult.Error(it) }
+        // 1. Fetch JSON file unless the caller already has it (Early Return on error)
+        val pageBytes = preloadedBytes
+            ?: webdavClient.getFile(SyncPaths.pageFile(notebookId, pageId))
+                .onFailure { return AppResult.Error(it) }
 
         // 2. Deserialize (Early Return on corrupted JSON)
         val pageJson = pageBytes.decodeToString()

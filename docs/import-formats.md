@@ -8,9 +8,8 @@ Maintainers
 Overview
 - Entrypoint: ImportEngine.import(uri, options)
 - Options (ImportOptions):
-    - saveToBookId: import into an existing book (TODO)
+    - saveToBookId: append the imported pages to an existing book instead of creating a new one
     - folderId: parent folder for a newly created notebook
-    - conflictStrategy: planned merge strategies (TODO)
     - linkToExternalFile: link vs copy (currently used for PDF backgrounds)
     - fileType: optional MIME-type pre-check
     - bookTitle: optional notebook title override
@@ -21,6 +20,7 @@ Currently supported formats
     - Handler: handleImportXopp
     - Creates a notebook with defaultBackgroundType = Native (blank)
     - Parses pages, strokes, and images via XoppFile.importBook and stores them
+    - Solid background styles map to native page backgrounds (lined/ruled → lined, graph → squared, dotted → dotted; anything else → blank)
 - PDF — Maintainer: @Ethran
     - Detection: isPdfFile(mimeType, fileName)
     - Handler: handleImportPDF
@@ -47,7 +47,7 @@ data class PageContent(
 - The codebase is not perfect; if you know how to improve how imports are handled, feel free to open a PR
 
 ### Caveats
-- saveToBookId and all conflict strategies are TODO
+- Importing into an existing book (saveToBookId) appends pages; merge/conflict strategies for colliding pages are TODO
 - Keep heavy I/O off the main thread (parsers should not block the UI)
 - Be careful with large files and memory usage
 

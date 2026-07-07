@@ -2,12 +2,21 @@ name: PR Unit Tests
 on:
   pull_request:
     branches: ["dev", "main"]
-    # 'opened' and 'synchronize' (new commits) are included by default 
+    # 'opened' and 'synchronize' (new commits) are included by default
     # when you use pull_request, but you can explicitly state them:
     types: [opened, synchronize, reopened]
+  # Allow manual runs against any branch (e.g. agent branches before a PR exists).
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
 
 permissions:
   contents: read
+
+# A newer push to the same branch supersedes any still-running check.
+concurrency:
+  group: pr-unit-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
@@ -29,3 +38,30 @@ jobs:
       - name: Run Unit Tests
         # Replace with your specific unit test task if different
         run: ./gradlew testDebugUnitTest
+
+      - name: Compile instrumented tests
+        # Instrumented tests only execute on the emulator workflows, but a PR
+        # that breaks their compilation should fail fast here.
+        run: ./gradlew assembleDebugAndroidTest
+
+      - name: Run detekt
+        # Static analysis gate. Pre-existing findings are captured in
+        # config/detekt/baseline.xml; only new findings fail this step.
+        run: ./gradlew detekt
+
+      - name: Run Android Lint
+        # Informational for now (abortOnError=false in app/build.gradle);
+        # the HTML report is uploaded as a build artifact below. Bounded and
+        # non-blocking: lint is slow/memory-hungry on the shared runner and
+        # must never hold the required checks hostage.
+        run: ./gradlew lintDebug
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore

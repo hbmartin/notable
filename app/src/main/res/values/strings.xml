@@ -122,6 +122,7 @@
     <string name="sync_manual_actions_title">Manual Actions</string>
 
     <!-- Sync Field Labels -->
+    <string name="sync_server_url_http_warning">Warning: this URL uses plain HTTP. Your password and notes will be sent unencrypted; use https:// if your server supports it.</string>
     <string name="sync_server_url_note">Note: \"/notable\" will be appended to your path to keep files organized.</string>
     <string name="sync_server_url_label">Server URL</string>
     <string name="sync_username_label">Username</string>

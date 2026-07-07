@@ -81,33 +81,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pageDao(): PageDao
     abstract fun strokeDao(): StrokeDao
     abstract fun ImageDao(): ImageDao
-
-//    companion object {
-//        private var INSTANCE: AppDatabase? = null
-//
-//        fun getDatabase(context: Context): AppDatabase {
-//            if (INSTANCE == null) {
-//                synchronized(this) {
-//                    val dbDir = getDbDir()
-//                    val dbFile = File(dbDir, "app_database")
-//
-//                    // Use Room to build the database
-//                    INSTANCE =
-//                        Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-//                            .allowMainThreadQueries() // Avoid in production
-//                            .addMigrations(
-//                                MIGRATION_16_17,
-//                                MIGRATION_17_18,
-//                                MIGRATION_22_23,
-//                                MIGRATION_32_33
-//                            )
-//                            .build()
-//
-//                }
-//            }
-//            return INSTANCE!!
-//        }
-//    }
 }
 
 @Module

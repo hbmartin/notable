@@ -1,0 +1,202 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ReorderableGridItem.kt$id != null &amp;&amp; from &gt;= 0 &amp;&amp; to &gt;= 0 &amp;&amp; to != from &amp;&amp; to != from + 1</ID>
+    <ID>ComplexCondition:renderPdf.kt$rect.left == 0 &amp;&amp; rect.top == 0 &amp;&amp; rect.width() == width &amp;&amp; rect.height() == height</ID>
+    <ID>ConstructorParameterNaming:eraser.kt$Eraser$val _name: String</ID>
+    <ID>ConstructorParameterNaming:versionChecker.kt$GitHubRelease$val html_url: String</ID>
+    <ID>ConstructorParameterNaming:versionChecker.kt$GitHubRelease.Asset$val updated_at: String</ID>
+    <ID>CyclomaticComplexMethod:BackgroundSelector.kt$@Composable fun BackgroundSelector( initialPageBackgroundType: String, initialPageBackground: String, initialPageNumberInPdf: Int = 0, isNotebookBgSelector: Boolean = false, // for notebook default background notebookId: String? = null, pageNumberInBook: Int = -1, onChange: (backgroundType: String, background: String?) -&gt; Unit, onClose: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:EditorGestureReceiver.kt$@Composable fun EditorGestureReceiver( controlTower: EditorControlTower, )</ID>
+    <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$fun onToolbarAction(action: ToolbarAction)</ID>
+    <ID>CyclomaticComplexMethod:FileUtils.kt$fun getFilePathFromUri(context: Context, uri: Uri): String?</ID>
+    <ID>CyclomaticComplexMethod:PageScrubber.kt$@Composable fun PageHorizontalSliderWithReturn( modifier: Modifier = Modifier, pageCount: Int, currentIndex: Int, favIndexes: List&lt;Int&gt; = emptyList(), trackHeight: Dp = 26.dp, thumbWidth: Dp = 20.dp, quantization: Int = 1, showPageIndicator: Boolean = true, showTicks: Boolean = true, onDragStart: () -&gt; Unit = {}, onPreviewIndexChanged: (index: Int) -&gt; Unit = {}, onDragEnd: (index: Int) -&gt; Unit = {}, onReturnClick: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:SyncWorker.kt$SyncWorker$override suspend fun doWork(): Result</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:BugReportGenerator.kt$BugReportGenerator$val (datetime, _, _, level, tag, message) = match.destructured</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:versionChecker.kt$Version.Companion$val (major, minor, patch, dateStr) = match.destructured</ID>
+    <ID>EmptyFunctionBlock:OnyxInputHandler.kt$OnyxInputHandler.&lt;no name provided&gt;${ }</ID>
+    <ID>ForbiddenComment:BreadCrumb.kt$// TODO: Move it!!! And check the usage of it!!</ID>
+    <ID>ForbiddenComment:EditorControlTower.kt$EditorControlTower$// TODO: remove it, change to proper solution</ID>
+    <ID>ForbiddenComment:ExportEngine.kt$ExportEngine$// TODO: Retrieve all necessary data from the target, so that specific format exporter does not need to handle reading from db.</ID>
+    <ID>ForbiddenComment:GestureState.kt$GestureState$// TODO: We should instead wait till full refresh is ready to be posted,</ID>
+    <ID>ForbiddenComment:GestureState.kt$GestureState$// TODO: there should be better solution to this, but for now its enough.</ID>
+    <ID>ForbiddenComment:ImportEngine.kt$ImportEngine$// TODO: Handle conflicts with existing pages.</ID>
+    <ID>ForbiddenComment:LineRenderer.kt$LineRenderer$// TODO: Address copilot suggestion:</ID>
+    <ID>ForbiddenComment:MainActivity.kt$// TODO: Check if migrating to LocalConfiguration in Compose is good idea</ID>
+    <ID>ForbiddenComment:OnyxInputHandler.kt$OnyxInputHandler$// TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper</ID>
+    <ID>ForbiddenComment:Page.kt$// TODO: make it better</ID>
+    <ID>ForbiddenComment:PageDataManager.kt$PageDataManager$// TODO: if we exited the book, we should clear the cache.</ID>
+    <ID>ForbiddenComment:PageDataManager.kt$PageDataManager$// TODO: it Does use lock, is it safe?</ID>
+    <ID>ForbiddenComment:PageView.kt$PageView$// TODO: Clean it up, move some logic to pageDataManager</ID>
+    <ID>ForbiddenComment:PageView.kt$PageView$// TODO: If we put it in loadPage(…) sometimes it will try to refresh</ID>
+    <ID>ForbiddenComment:PageView.kt$PageView$// TODO: Problem: Sometimes refreshUi had a problem with proper refreshing screen,</ID>
+    <ID>ForbiddenComment:PageView.kt$PageView$// TODO: it might be worth to do it</ID>
+    <ID>ForbiddenComment:PageView.kt$PageView$// TODO: unify width height variable</ID>
+    <ID>ForbiddenComment:PageViewGeometry.kt$PageViewGeometry$// TODO: Better snapping logic</ID>
+    <ID>ForbiddenComment:SelectionState.kt$SelectionState$// TODO: Bitmap should be change, if scale changes.</ID>
+    <ID>ForbiddenComment:SelectionState.kt$SelectionState$// TODO: find why sometimes we add two times same operation.</ID>
+    <ID>ForbiddenComment:SelectionState.kt$SelectionState$//TODO: implement this</ID>
+    <ID>ForbiddenComment:SelectorBitmap.kt$// TODO: I think the toolbar is still not in the center.</ID>
+    <ID>ForbiddenComment:SelectorBitmap.kt$// TODO: improve this code</ID>
+    <ID>ForbiddenComment:backgrounds.kt$// TODO: It's working, but its not nice -- do it in better style.</ID>
+    <ID>ForbiddenComment:backgrounds.kt$// TODO: Should we also repeat horizontally?</ID>
+    <ID>ForbiddenComment:backgrounds.kt$// TODO: make sure it respects horizontal scroll</ID>
+    <ID>ForbiddenComment:operations.kt$// TODO: it deprecated, find replacement.</ID>
+    <ID>ForbiddenComment:pen.kt$PenSetting$//TODO: Rename to strokeColor</ID>
+    <ID>ImplicitDefaultLocale:XoppFile.kt$XoppFile$String.format( "#%02X%02X%02X%02X", (argb shr 16) and 0xFF, (argb shr 8) and 0xFF, (argb) and 0xFF, (argb shr 24) and 0xFF )</ID>
+    <ID>InstanceOfCheckForException:SnackBar.kt$SnackState$e is CancellationException</ID>
+    <ID>LongMethod:BackgroundSelector.kt$@Composable fun BackgroundSelector( initialPageBackgroundType: String, initialPageBackground: String, initialPageNumberInPdf: Int = 0, isNotebookBgSelector: Boolean = false, // for notebook default background notebookId: String? = null, pageNumberInBook: Int = -1, onChange: (backgroundType: String, background: String?) -&gt; Unit, onClose: () -&gt; Unit )</ID>
+    <ID>LongMethod:BackgroundSelector.kt$@Composable fun PageNumberSelector( currentBackground: String, currentBackgroundType: BackgroundType, maxPages: Int?, currentPage: Int?, onBackgroundChange: (BackgroundType, String) -&gt; Unit, showAutoPdfOption: Boolean, isNotebookBgSelector: Boolean )</ID>
+    <ID>LongMethod:EditorGestureReceiver.kt$@Composable fun EditorGestureReceiver( controlTower: EditorControlTower, )</ID>
+    <ID>LongMethod:EditorView.kt$@Composable fun EditorView( initialPageId: String, bookId: String?, isQuickNavOpen: Boolean, // navigation callbacks onPageChange: (String) -&gt; Unit, goToLibrary: (folderId: String?) -&gt; Unit, goToPages: (bookId: String) -&gt; Unit, goToBugReport: () -&gt; Unit, viewModel: EditorViewModel = hiltViewModel() )</ID>
+    <ID>LongMethod:FolderConfig.kt$@Composable fun FolderConfigDialog(appRepository: AppRepository, folderId: String, onClose: () -&gt; Unit)</ID>
+    <ID>LongMethod:NotebookConfig.kt$@Composable fun NotebookConfigDialog( appRepository: AppRepository, exportEngine: ExportEngine, syncScheduler: SyncScheduler, bookId: String, onClose: () -&gt; Unit)</ID>
+    <ID>LongMethod:PageScrubber.kt$@Composable fun PageHorizontalSliderWithReturn( modifier: Modifier = Modifier, pageCount: Int, currentIndex: Int, favIndexes: List&lt;Int&gt; = emptyList(), trackHeight: Dp = 26.dp, thumbWidth: Dp = 20.dp, quantization: Int = 1, showPageIndicator: Boolean = true, showTicks: Boolean = true, onDragStart: () -&gt; Unit = {}, onPreviewIndexChanged: (index: Int) -&gt; Unit = {}, onDragEnd: (index: Int) -&gt; Unit = {}, onReturnClick: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:PagesView.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun PagesContent( state: PagesUiState, onBack: (String?) -&gt; Unit, onOpenPage: (String) -&gt; Unit, onGenerateThumbnails: () -&gt; Unit, onReorder: (String, Int) -&gt; Unit, onDeletePage: (String) -&gt; Unit, onDuplicatePage: (String) -&gt; Unit, onAddPageAfter: (Int) -&gt; Unit )</ID>
+    <ID>LongMethod:StrokeReencoding.kt$StrokeMigrationHelper$fun reencodeStrokePointsToSB1()</ID>
+    <ID>LongMethod:SyncOrchestrator.kt$SyncOrchestrator$suspend fun syncAllNotebooks(): AppResult&lt;Unit, DomainError&gt;</ID>
+    <ID>LongMethod:SystemInformation.kt$@Composable fun SystemInformationContent( uiState: SystemInformationViewModel.SystemInfoUiState?, onBack: () -&gt; Unit, onRefresh: () -&gt; Unit, )</ID>
+    <ID>LongMethod:SystemInformationViewModel.kt$SystemInformationViewModel$@Suppress("UsePropertyAccessSyntax") fun collectDeviceSnapshot(context: Context, base: BaseDevice): DeviceSnapshot</ID>
+    <ID>LongMethod:Toolbar.kt$@Composable fun ToolbarContent( uiState: ToolbarUiState, onAction: (ToolbarAction) -&gt; Unit, onDrawingStateCheck: () -&gt; Unit, )</ID>
+    <ID>MatchingDeclarationName:HomeView.kt$LibraryDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:LogView.kt$BugReportDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:PageMerge.kt$PageSyncAction</ID>
+    <ID>MatchingDeclarationName:PagesView.kt$PagesDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:Settings.kt$SettingsDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:SystemInformation.kt$SystemInformationDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:WelcomeView.kt$WelcomeDestination : NavigationDestination</ID>
+    <ID>MatchingDeclarationName:eraser.kt$Eraser</ID>
+    <ID>NestedBlockDepth:WebDAVClient.kt$WebDAVClient$private fun parseEntriesFromXml(xml: String): List&lt;Pair&lt;String, Date?&gt;&gt;</ID>
+    <ID>NewLineAtEndOfFile:Anchor.kt$com.ethran.notable.ui.components.Anchor.kt</ID>
+    <ID>NewLineAtEndOfFile:AppRepository.kt$com.ethran.notable.data.AppRepository.kt</ID>
+    <ID>NewLineAtEndOfFile:BackgroundSelector.kt$com.ethran.notable.ui.dialogs.BackgroundSelector.kt</ID>
+    <ID>NewLineAtEndOfFile:BackgroundType.kt$com.ethran.notable.data.model.BackgroundType.kt</ID>
+    <ID>NewLineAtEndOfFile:BugReportGenerator.kt$com.ethran.notable.ui.viewmodels.BugReportGenerator.kt</ID>
+    <ID>NewLineAtEndOfFile:BugReportViewModel.kt$com.ethran.notable.ui.viewmodels.BugReportViewModel.kt</ID>
+    <ID>NewLineAtEndOfFile:CanvasEventBus.kt$com.ethran.notable.editor.canvas.CanvasEventBus.kt</ID>
+    <ID>NewLineAtEndOfFile:CanvasRefreshManager.kt$com.ethran.notable.editor.canvas.CanvasRefreshManager.kt</ID>
+    <ID>NewLineAtEndOfFile:Color.kt$com.ethran.notable.ui.theme.Color.kt</ID>
+    <ID>NewLineAtEndOfFile:CryptoHelper.kt$com.ethran.notable.data.db.CryptoHelper.kt</ID>
+    <ID>NewLineAtEndOfFile:Db.kt$com.ethran.notable.data.db.Db.kt</ID>
+    <ID>NewLineAtEndOfFile:DrawCanvas.kt$com.ethran.notable.editor.canvas.DrawCanvas.kt</ID>
+    <ID>NewLineAtEndOfFile:EmptyBookWarning.kt$com.ethran.notable.ui.dialogs.EmptyBookWarning.kt</ID>
+    <ID>NewLineAtEndOfFile:ExampleInstrumentedTest.kt$com.ethran.notable.ExampleInstrumentedTest.kt</ID>
+    <ID>NewLineAtEndOfFile:ExampleUnitTest.kt$com.ethran.notable.ExampleUnitTest.kt</ID>
+    <ID>NewLineAtEndOfFile:ExportEngine.kt$com.ethran.notable.io.ExportEngine.kt</ID>
+    <ID>NewLineAtEndOfFile:FastScroller.kt$com.ethran.notable.ui.components.FastScroller.kt</ID>
+    <ID>NewLineAtEndOfFile:FileUtils.kt$com.ethran.notable.io.FileUtils.kt</ID>
+    <ID>NewLineAtEndOfFile:Folder.kt$com.ethran.notable.data.db.Folder.kt</ID>
+    <ID>NewLineAtEndOfFile:FolderConfig.kt$com.ethran.notable.ui.dialogs.FolderConfig.kt</ID>
+    <ID>NewLineAtEndOfFile:FolderSelectionDialog.kt$com.ethran.notable.ui.dialogs.FolderSelectionDialog.kt</ID>
+    <ID>NewLineAtEndOfFile:FolderSerializer.kt$com.ethran.notable.sync.serializers.FolderSerializer.kt</ID>
+    <ID>NewLineAtEndOfFile:GestureState.kt$com.ethran.notable.gestures.GestureState.kt</ID>
+    <ID>NewLineAtEndOfFile:GesturesSettings.kt$com.ethran.notable.ui.components.GesturesSettings.kt</ID>
+    <ID>NewLineAtEndOfFile:History.kt$com.ethran.notable.editor.state.History.kt</ID>
+    <ID>NewLineAtEndOfFile:HomeView.kt$com.ethran.notable.ui.views.HomeView.kt</ID>
+    <ID>NewLineAtEndOfFile:Image.kt$com.ethran.notable.data.db.Image.kt</ID>
+    <ID>NewLineAtEndOfFile:ImageHandler.kt$com.ethran.notable.editor.utils.ImageHandler.kt</ID>
+    <ID>NewLineAtEndOfFile:ImportEngine.kt$com.ethran.notable.io.ImportEngine.kt</ID>
+    <ID>NewLineAtEndOfFile:LineRenderer.kt$com.ethran.notable.editor.drawing.LineRenderer.kt</ID>
+    <ID>NewLineAtEndOfFile:LineToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.LineToolbarButton.kt</ID>
+    <ID>NewLineAtEndOfFile:LogView.kt$com.ethran.notable.ui.views.LogView.kt</ID>
+    <ID>NewLineAtEndOfFile:MainActivity.kt$com.ethran.notable.MainActivity.kt</ID>
+    <ID>NewLineAtEndOfFile:Migrations.kt$com.ethran.notable.data.db.Migrations.kt</ID>
+    <ID>NewLineAtEndOfFile:NavigationDestination.kt$com.ethran.notable.navigation.NavigationDestination.kt</ID>
+    <ID>NewLineAtEndOfFile:NotableApp.kt$com.ethran.notable.NotableApp.kt</ID>
+    <ID>NewLineAtEndOfFile:NotableApp.kt$com.ethran.notable.ui.components.NotableApp.kt</ID>
+    <ID>NewLineAtEndOfFile:NotableNavHost.kt$com.ethran.notable.navigation.NotableNavHost.kt</ID>
+    <ID>NewLineAtEndOfFile:Notebook.kt$com.ethran.notable.data.db.Notebook.kt</ID>
+    <ID>NewLineAtEndOfFile:NotebookCard.kt$com.ethran.notable.ui.components.NotebookCard.kt</ID>
+    <ID>NewLineAtEndOfFile:NotebookConfig.kt$com.ethran.notable.ui.dialogs.NotebookConfig.kt</ID>
+    <ID>NewLineAtEndOfFile:NotebookSerializer.kt$com.ethran.notable.sync.serializers.NotebookSerializer.kt</ID>
+    <ID>NewLineAtEndOfFile:OnyxInputHandler.kt$com.ethran.notable.editor.canvas.OnyxInputHandler.kt</ID>
+    <ID>NewLineAtEndOfFile:OpenGLRenderer.kt$com.ethran.notable.editor.drawing.OpenGLRenderer.kt</ID>
+    <ID>NewLineAtEndOfFile:PageCard.kt$com.ethran.notable.ui.components.PageCard.kt</ID>
+    <ID>NewLineAtEndOfFile:PageDataManager.kt$com.ethran.notable.data.PageDataManager.kt</ID>
+    <ID>NewLineAtEndOfFile:PageScrubber.kt$com.ethran.notable.ui.components.PageScrubber.kt</ID>
+    <ID>NewLineAtEndOfFile:PageView.kt$com.ethran.notable.editor.PageView.kt</ID>
+    <ID>NewLineAtEndOfFile:PagesViewModel.kt$com.ethran.notable.ui.viewmodels.PagesViewModel.kt</ID>
+    <ID>NewLineAtEndOfFile:PdfImportChoiceDialog.kt$com.ethran.notable.ui.dialogs.PdfImportChoiceDialog.kt</ID>
+    <ID>NewLineAtEndOfFile:PenToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.PenToolbarButton.kt</ID>
+    <ID>NewLineAtEndOfFile:PositionedToolbar.kt$com.ethran.notable.editor.ui.toolbar.PositionedToolbar.kt</ID>
+    <ID>NewLineAtEndOfFile:PreviewBitmapStore.kt$com.ethran.notable.editor.utils.PreviewBitmapStore.kt</ID>
+    <ID>NewLineAtEndOfFile:QuickNav.kt$com.ethran.notable.ui.components.QuickNav.kt</ID>
+    <ID>NewLineAtEndOfFile:QuickNavGesture.kt$com.ethran.notable.gestures.QuickNavGesture.kt</ID>
+    <ID>NewLineAtEndOfFile:QuickNavViewModel.kt$com.ethran.notable.ui.viewmodels.QuickNavViewModel.kt</ID>
+    <ID>NewLineAtEndOfFile:ReorderableGridItem.kt$com.ethran.notable.utils.ReorderableGridItem.kt</ID>
+    <ID>NewLineAtEndOfFile:Select.kt$com.ethran.notable.editor.ui.Select.kt</ID>
+    <ID>NewLineAtEndOfFile:Select.kt$com.ethran.notable.editor.utils.Select.kt</ID>
+    <ID>NewLineAtEndOfFile:SelectorBitmap.kt$com.ethran.notable.editor.ui.SelectorBitmap.kt</ID>
+    <ID>NewLineAtEndOfFile:Shape.kt$com.ethran.notable.ui.theme.Shape.kt</ID>
+    <ID>NewLineAtEndOfFile:ShowPagesRow.kt$com.ethran.notable.ui.components.ShowPagesRow.kt</ID>
+    <ID>NewLineAtEndOfFile:SimplePointF.kt$com.ethran.notable.data.model.SimplePointF.kt</ID>
+    <ID>NewLineAtEndOfFile:SnackBar.kt$com.ethran.notable.ui.SnackBar.kt</ID>
+    <ID>NewLineAtEndOfFile:SnackDispatcher.kt$com.ethran.notable.ui.SnackDispatcher.kt</ID>
+    <ID>NewLineAtEndOfFile:StrokeMenu.kt$com.ethran.notable.editor.ui.toolbar.StrokeMenu.kt</ID>
+    <ID>NewLineAtEndOfFile:StrokePointConverter.kt$com.ethran.notable.data.db.StrokePointConverter.kt</ID>
+    <ID>NewLineAtEndOfFile:Switch.kt$com.ethran.notable.ui.components.Switch.kt</ID>
+    <ID>NewLineAtEndOfFile:SyncWorkUiBridge.kt$com.ethran.notable.ui.SyncWorkUiBridge.kt</ID>
+    <ID>NewLineAtEndOfFile:SyncWorker.kt$com.ethran.notable.sync.SyncWorker.kt</ID>
+    <ID>NewLineAtEndOfFile:SystemInformationViewModel.kt$com.ethran.notable.ui.viewmodels.SystemInformationViewModel.kt</ID>
+    <ID>NewLineAtEndOfFile:Theme.kt$com.ethran.notable.ui.theme.Theme.kt</ID>
+    <ID>NewLineAtEndOfFile:Timing.kt$com.ethran.notable.utils.Timing.kt</ID>
+    <ID>NewLineAtEndOfFile:Toolbar.kt$com.ethran.notable.editor.ui.toolbar.Toolbar.kt</ID>
+    <ID>NewLineAtEndOfFile:ToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.ToolbarButton.kt</ID>
+    <ID>NewLineAtEndOfFile:Topbar.kt$com.ethran.notable.editor.ui.Topbar.kt</ID>
+    <ID>NewLineAtEndOfFile:Type.kt$com.ethran.notable.ui.theme.Type.kt</ID>
+    <ID>NewLineAtEndOfFile:WelcomeView.kt$com.ethran.notable.ui.views.WelcomeView.kt</ID>
+    <ID>NewLineAtEndOfFile:backgrounds.kt$com.ethran.notable.editor.drawing.backgrounds.kt</ID>
+    <ID>NewLineAtEndOfFile:debug.kt$com.ethran.notable.utils.debug.kt</ID>
+    <ID>NewLineAtEndOfFile:einkHelper.kt$com.ethran.notable.editor.utils.einkHelper.kt</ID>
+    <ID>NewLineAtEndOfFile:eraser.kt$com.ethran.notable.editor.utils.eraser.kt</ID>
+    <ID>NewLineAtEndOfFile:flowExtensions.kt$com.ethran.notable.utils.flowExtensions.kt</ID>
+    <ID>NewLineAtEndOfFile:handleInput.kt$com.ethran.notable.editor.utils.handleInput.kt</ID>
+    <ID>NewLineAtEndOfFile:importPdf.kt$com.ethran.notable.io.importPdf.kt</ID>
+    <ID>NewLineAtEndOfFile:operations.kt$com.ethran.notable.editor.utils.operations.kt</ID>
+    <ID>NewLineAtEndOfFile:pageDrawing.kt$com.ethran.notable.editor.drawing.pageDrawing.kt</ID>
+    <ID>NewLineAtEndOfFile:pen.kt$com.ethran.notable.editor.utils.pen.kt</ID>
+    <ID>NewLineAtEndOfFile:penStrokes.kt$com.ethran.notable.editor.drawing.penStrokes.kt</ID>
+    <ID>NewLineAtEndOfFile:renderFromFile.kt$com.ethran.notable.io.renderFromFile.kt</ID>
+    <ID>NewLineAtEndOfFile:renderPdf.kt$com.ethran.notable.io.renderPdf.kt</ID>
+    <ID>NewLineAtEndOfFile:share.kt$com.ethran.notable.io.share.kt</ID>
+    <ID>SpreadOperator:PageDataManager.kt$PageDataManager$(*images[pageId]!!.map { img -&gt; img.id to img }.toTypedArray())</ID>
+    <ID>SpreadOperator:PageDataManager.kt$PageDataManager$(*strokes[pageId]!!.map { s -&gt; s.id to s }.toTypedArray())</ID>
+    <ID>TooGenericExceptionThrown:BackgroundSelector.kt$throw Exception("Unknown BackgroundType for selection $selectedBackgroundMode")</ID>
+    <ID>TooGenericExceptionThrown:versionChecker.kt$throw Exception( "One of the version doesn't match simple semantic - comparison is impossible" )</ID>
+    <ID>TooGenericExceptionThrown:versionChecker.kt$throw Exception("One of the version is null - comparison is impossible")</ID>
+    <ID>UnusedParameter:DebugSettings.kt$goToWelcome: () -&gt; Unit</ID>
+    <ID>UnusedParameter:NotableNavHost.kt$exportEngine: ExportEngine</ID>
+    <ID>UnusedParameter:Settings.kt$syncCallbacks: SyncSettingsCallbacks = SyncSettingsCallbacks()</ID>
+    <ID>UnusedParameter:Settings.kt$syncUiState: SyncSettingsUiState = SyncSettingsUiState()</ID>
+    <ID>UnusedParameter:einkHelper.kt$view: View</ID>
+    <ID>UnusedParameter:einkHelper.kt$view: View? = null</ID>
+    <ID>UnusedPrivateMember:EncodingTest.kt$EncodingTest.CompressionStats$private fun reset()</ID>
+    <ID>UnusedPrivateMember:ExportEngine.kt$ExportEngine$private fun copyBookPdfLink(context: Context, bookId: String, bookName: String)</ID>
+    <ID>UnusedPrivateMember:PageDataManager.kt$PageDataManager$private suspend fun waitForPageLoad(pageId: String)</ID>
+    <ID>UnusedPrivateMember:PageView.kt$PageView$private fun redrawAll(scope: CoroutineScope)</ID>
+    <ID>UnusedPrivateProperty:EditorViewModel.kt$EditorViewModel$@param:ApplicationScope private val appScope: CoroutineScope</ID>
+    <ID>UnusedPrivateProperty:HomeView.kt$val mockUiState = LibraryUiState( folderId = "folder_1", isLatestVersion = false, // Will show the red badge on the settings icon isImporting = true, // Will hide the delete warning for empty books breadcrumbFolders = emptyList(), folders = emptyList(), books = emptyList(), singlePages = emptyList() )</ID>
+    <ID>UnusedPrivateProperty:HomeView.kt$val mockUiState = LibraryUiState( folderId = null, isLatestVersion = true, isImporting = false, breadcrumbFolders = listOf( // Optional: Add mock breadcrumbs if you want to preview nested folder state Folder(id = "root", title = "Home", parentFolderId = null) ), folders = listOf( // Adjust constructor arguments based on your exact entity definition Folder(id = "folder_1", title = "Work Notes", parentFolderId = null), Folder(id = "folder_2", title = "Personal", parentFolderId = null) ), books = listOf( // Needs pageIds to render the card (empty books show a warning) Notebook(id = "book_1", title = "Meeting Minutes", pageIds = listOf("page1", "page2")), Notebook(id = "book_2", title = "Journal", pageIds = listOf("page3")) ), singlePages = emptyList() // Populate with mock Page() objects if you want to see Quick Pages )</ID>
+    <ID>UnusedPrivateProperty:OpenGLRenderer.kt$OpenGLRenderer$val tilt = motionEvent.getAxisValue(MotionEvent.AXIS_TILT)</ID>
+    <ID>UnusedPrivateProperty:SyncProgressReporter.kt$SyncProgressReporterImpl$@param:ApplicationScope private val scope: CoroutineScope</ID>
+    <ID>UseCheckOrError:Kv.kt$KvProxy$throw IllegalStateException("Unable to encrypt sync password: ${encrypted.error.userMessage}")</ID>
+    <ID>UseCheckOrError:Kv.kt$KvRepository$throw IllegalStateException("Storage permission not granted or DB not accessible.")</ID>
+    <ID>UseRequire:ExportEngine.kt$ExportEngine$throw IllegalArgumentException( "ExportOptions.targetFolderUri must point to a directory (SAF tree/document folder or file:// directory). Maybe folder was deleted?" )</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Bad magic, not a Stroke binary")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Buffer too small for SB1 header (need $HEADER_SIZE bytes)")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Buffer too small for header (need $HEADER_SIZE bytes)")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Negative point count")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Trailing bytes after decoding stroke")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated coordinates section")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated dt section")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated pressure section")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated tiltX section")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated tiltY section")</ID>
+    <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Unsupported version: $version")</ID>
+    <ID>UseRequire:operations.kt$throw IllegalArgumentException("points list is empty")</ID>
+    <ID>WildcardImport:ExampleInstrumentedTest.kt$import org.junit.Assert.*</ID>
+    <ID>WildcardImport:Stroke.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:XoppImportTest.kt$import com.ethran.notable.data.db.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

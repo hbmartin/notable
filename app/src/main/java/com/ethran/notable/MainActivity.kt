@@ -178,7 +178,10 @@ class MainActivity : ComponentActivity() {
                     syncScheduler.get().triggerImmediateSync()
                 }
             } catch (e: Exception) {
-                Log.i(TAG, "Initial sync setup failed: ${e.message}")
+                Log.e(TAG, "Initial sync setup failed: ${e.message}")
+                snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = "Sync could not start: ${e.message}", duration = 5000)
+                )
             }
         }
     }
@@ -189,7 +192,10 @@ class MainActivity : ComponentActivity() {
                 val settings = kvProxy.get().getSyncSettings()
                 syncScheduler.get().reconcilePeriodicSync(settings)
             } catch (e: Exception) {
-                Log.i(TAG, "Periodic sync reconcile failed: ${e.message}")
+                Log.e(TAG, "Periodic sync reconcile failed: ${e.message}")
+                snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = "Periodic sync could not be scheduled: ${e.message}", duration = 5000)
+                )
             }
         }
     }

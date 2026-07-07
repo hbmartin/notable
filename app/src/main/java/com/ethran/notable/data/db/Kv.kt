@@ -11,6 +11,8 @@ import androidx.room.Query
 import com.ethran.notable.APP_SETTINGS_KEY
 import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.data.events.AppEvent
+import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.sync.SYNC_SETTINGS_KEY
 import com.ethran.notable.sync.SyncSettings
 import com.ethran.notable.utils.AppResult
@@ -89,9 +91,15 @@ class KvRepository @Inject constructor(
 @Singleton
 class KvProxy @Inject constructor(
     private val kvRepository: KvRepository,
-    private val cryptoHelper: CryptoHelper
+    private val cryptoHelper: CryptoHelper,
+    private val appEventBus: AppEventBus
 ) {
     private val log = ShipBook.getLogger("KvProxy")
+
+    // getSyncSettings runs on every sync trigger; notify about an undecryptable
+    // password once per process instead of on each call.
+    @Volatile
+    private var decryptFailureNotified = false
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -131,6 +139,16 @@ class KvProxy @Inject constructor(
             is AppResult.Success -> settings.copy(password = decrypted.data)
             is AppResult.Error -> {
                 log.w("Failed to decrypt sync password: ${decrypted.error.userMessage}")
+                if (!decryptFailureNotified) {
+                    decryptFailureNotified = true
+                    appEventBus.tryEmit(
+                        AppEvent.GenericError(
+                            "Stored sync password could not be decrypted " +
+                                    "(device key may have changed). " +
+                                    "Please re-enter it in sync settings."
+                        )
+                    )
+                }
                 settings.copy(password = "")
             }
         }

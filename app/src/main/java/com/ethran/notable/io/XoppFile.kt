@@ -21,6 +21,7 @@ import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.db.StrokePoint
 import com.ethran.notable.data.ensureImagesFolder
 import com.ethran.notable.data.events.AppEvent
+import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.utils.ensureNotMainThread
@@ -62,8 +63,20 @@ class XoppFile @Inject constructor(
     private val appEventBus: AppEventBus,
 ) {
     private val log = ShipBook.getLogger("XoppFile")
-    private val scaleFactor = A4_WIDTH.toFloat() / SCREEN_WIDTH
-    private val maxPressure = EpdController.getMaxTouchPressure()
+
+    // SCREEN_WIDTH is 0 on non-Onyx devices (and in test processes) until
+    // MainActivity measures the display. A zero divisor makes scaleFactor
+    // infinite: imports collapse coordinates to 0 and exports emit NaN, which
+    // SQLite stores as NULL and the Stroke NOT NULL constraints then reject.
+    // Read lazily (not at construction) so a Hilt singleton created before the
+    // display is measured doesn't freeze a bad value.
+    private val scaleFactor: Float
+        get() = if (SCREEN_WIDTH > 0) A4_WIDTH.toFloat() / SCREEN_WIDTH else 1f
+
+    // Same guard: getMaxTouchPressure() is 0 off-device, which would turn every
+    // reconstructed pressure into 0/NaN. 4096 matches the Stroke entity default.
+    private val maxPressure: Float =
+        EpdController.getMaxTouchPressure().toFloat().takeIf { it > 0f } ?: 4096f
 
     /**
      * Holds mutable buffers that are allocated once per import operation and reused across
@@ -152,7 +165,12 @@ class XoppFile @Inject constructor(
             writer.write("\" height=\"")
             writer.write(height.toString())
             writer.write("\">\n")
-            writer.write("<background type=\"solid\" color=\"#ffffffff\" style=\"plain\"/>\n")
+            val style = if (pageWithData.page.backgroundType == BackgroundType.Native.key) {
+                nativeBackgroundToXoppStyle(pageWithData.page.background)
+            } else {
+                "plain" // image/PDF backgrounds would need xopp attachments; not supported
+            }
+            writer.write("<background type=\"solid\" color=\"#ffffffff\" style=\"$style\"/>\n")
             writer.write("<layer>\n")
 
             for (stroke in strokes) {
@@ -344,8 +362,10 @@ class XoppFile @Inject constructor(
         val parseState = ParseState()
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                GzipCompressorInputStream(BufferedInputStream(inputStream)).use { gzipIn ->
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: throw IOException("Could not open input stream for $uri")
+            inputStream.use {
+                GzipCompressorInputStream(BufferedInputStream(it)).use { gzipIn ->
                     val parser = Xml.newPullParser()
                     parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
                     parser.setInput(gzipIn, null)
@@ -355,9 +375,8 @@ class XoppFile @Inject constructor(
                     while (eventType != XmlPullParser.END_DOCUMENT) {
                         if (eventType == XmlPullParser.START_TAG && parser.name == "page") {
                             val page = Page()
-                            onPageCreated(page)
                             val images = parsePageContentStreaming(
-                                parser, page, parseState, onStrokeBatch
+                                parser, page, parseState, onPageCreated, onStrokeBatch
                             )
                             onPageFinalized(page.id, images)
                             pageCount++
@@ -368,7 +387,10 @@ class XoppFile @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            // Callers translate this into an AppResult.Error the UI can show;
+            // swallowing it here made corrupt files report "Import Successful".
             log.e("Error importing book from $uri: ${e.message}")
+            throw e
         }
     }
 
@@ -383,13 +405,25 @@ class XoppFile @Inject constructor(
      */
     private suspend fun parsePageContentStreaming(
         parser: XmlPullParser,
-        page: Page,
+        pageTemplate: Page,
         state: ParseState,
+        onPageCreated: suspend (Page) -> Unit,
         onStrokeBatch: suspend (List<Stroke>) -> Unit,
     ): List<Image> {
         val images = mutableListOf<Image>()
         // Pre-sized to the batch limit so the backing array is never re-allocated mid-batch.
         var strokeBatch = ArrayList<Stroke>(STROKE_SAVE_BATCH_SIZE)
+
+        // <background> precedes all strokes in a .xopp file, so the page row can be
+        // created with its background applied before the first stroke batch references it.
+        var page = pageTemplate
+        var pageCreated = false
+        suspend fun ensurePageCreated() {
+            if (!pageCreated) {
+                pageCreated = true
+                onPageCreated(page)
+            }
+        }
 
         var eventType = parser.next()
         while (eventType != XmlPullParser.END_DOCUMENT &&
@@ -397,7 +431,19 @@ class XoppFile @Inject constructor(
         ) {
             if (eventType == XmlPullParser.START_TAG) {
                 when (parser.name) {
+                    "background" -> {
+                        if (!pageCreated && parser.getAttributeValue(null, "type") == "solid") {
+                            page = page.copy(
+                                background = xoppStyleToNativeBackground(
+                                    parser.getAttributeValue(null, "style")
+                                ),
+                                backgroundType = BackgroundType.Native.key
+                            )
+                        }
+                    }
+
                     "stroke" -> {
+                        ensurePageCreated()
                         parseStrokeStreaming(parser, page, state)?.let { stroke ->
                             strokeBatch.add(stroke)
                             if (strokeBatch.size >= STROKE_SAVE_BATCH_SIZE) {
@@ -410,11 +456,15 @@ class XoppFile @Inject constructor(
                         }
                     }
 
-                    "image" -> parseImageStreaming(parser, page)?.let { images.add(it) }
+                    "image" -> {
+                        ensurePageCreated()
+                        parseImageStreaming(parser, page)?.let { images.add(it) }
+                    }
                 }
             }
             eventType = parser.next()
         }
+        ensurePageCreated()
 
         // Flush the final partial batch (if any).
         if (strokeBatch.isNotEmpty()) {
@@ -743,6 +793,25 @@ class XoppFile @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Maps Notable's native background subtypes to Xournal++ solid background styles.
+     * "hexed" has no Xournal++ equivalent and degrades to "plain".
+     */
+    private fun nativeBackgroundToXoppStyle(background: String): String = when (background) {
+        "lined" -> "lined"
+        "squared" -> "graph"
+        "dotted" -> "dotted"
+        else -> "plain"
+    }
+
+    /** Inverse of [nativeBackgroundToXoppStyle]; unknown styles degrade to "blank". */
+    private fun xoppStyleToNativeBackground(style: String?): String = when (style) {
+        "lined", "ruled" -> "lined"
+        "graph" -> "squared"
+        "dotted" -> "dotted"
+        else -> "blank"
     }
 
     companion object {

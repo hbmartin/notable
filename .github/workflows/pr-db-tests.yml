@@ -1,0 +1,53 @@
+name: PR Database Tests
+# Room schema/migration changes are the highest data-loss risk in the app, so
+# instrumented tests run automatically when a PR touches database-critical
+# paths (the full suite is still available on demand via the
+# 'run-android-tests' label — see pr-android-tests.yml).
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["dev", "main"]
+    types: [opened, synchronize, reopened]
+    paths:
+      - "app/schemas/**"
+      - "app/src/main/java/com/ethran/notable/data/db/**"
+      - "app/src/androidTest/java/com/ethran/notable/data/db/**"
+      - "app/src/androidTest/java/com/ethran/notable/db/**"
+
+jobs:
+  db-tests:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run DB Instrumentation Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          force-avd-creation: true
+          emulator-options: >-
+            -no-window
+            -no-snapshot-save
+            -noaudio
+            -no-boot-anim
+            -camera-back none
+          disable-animations: true
+          emulator-boot-timeout: 600
+          # Migration tests live in com.ethran.notable.db and DB edge-case tests
+          # in com.ethran.notable.data.db; the runner's package filter takes only
+          # one prefix, so run the full suite rather than silently skipping one.
+          script: ./gradlew connectedDebugAndroidTest

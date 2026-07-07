@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ethran.notable.SCREEN_HEIGHT
+import com.ethran.notable.SCREEN_WIDTH
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.data.events.DefaultAppEventBus
 import com.ethran.notable.data.db.*
@@ -29,6 +31,13 @@ class XoppImportTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // XoppFile scales by A4_WIDTH / SCREEN_WIDTH; these globals are only set
+        // by MainActivity, which never runs here. Give them a realistic e-ink
+        // resolution so import/export use a finite scale factor.
+        SCREEN_WIDTH = 1404
+        SCREEN_HEIGHT = 1872
+
         db = TestDatabaseFactory.createInMemory(context)
 
         // Manual DI for a focused integration test
@@ -146,5 +155,86 @@ class XoppImportTest {
             val page = db.pageDao().getById(pageId)
             assertEquals("Page $pageId does not point to correct notebook", book.id, page?.notebookId)
         }
+    }
+
+    @Test(timeout = 60000)
+    fun importCorruptXopp_reportsError() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        val testFile = File(context.cacheDir, "corrupt.xopp")
+        testFile.writeBytes(byteArrayOf(0x00, 0x01, 0x02, 0x03, 0x42, 0x42, 0x42))
+        val uri = Uri.fromFile(testFile)
+
+        val result = importEngine.import(uri, ImportOptions(bookTitle = "Corrupt.xopp"))
+
+        assertTrue(
+            "Corrupt file must fail the import, got: $result",
+            result is AppResult.Error
+        )
+    }
+
+    // Two full imports plus an export and complete stroke read-backs of both
+    // notebooks; measured ~2 min on the CI emulator, so give it generous room.
+    @Test(timeout = 300000)
+    fun exportImportRoundTrip_preservesPagesStrokesAndBackground() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val testContext = InstrumentationRegistry.getInstrumentation().context
+
+        // 1. Import the fixture to get a real notebook into the database.
+        val sourceFile = File(context.cacheDir, "roundtrip_source.xopp")
+        testContext.assets.open("test_notebook.xopp").use { input ->
+            sourceFile.outputStream().use { input.copyTo(it) }
+        }
+        val firstResult = importEngine.import(
+            Uri.fromFile(sourceFile), ImportOptions(bookTitle = "RoundTripSource.xopp")
+        )
+        assertTrue("Fixture import failed: $firstResult", firstResult is AppResult.Success)
+        val firstPageIds = (firstResult as AppResult.Success).data
+        val sourceBook = db.notebookDao().getAll().first { it.title == "RoundTripSource" }
+
+        // Give the first page a native background style so the round trip exercises it.
+        val firstPage = db.pageDao().getById(firstPageIds.first())!!
+        db.pageDao().update(firstPage.copy(background = "lined", backgroundType = "native"))
+
+        // The exporter skips degenerate strokes (fewer than 3 points), so the
+        // round trip should preserve exactly the exportable strokes.
+        val exportableStrokeCounts = firstPageIds.map { pageId ->
+            db.pageDao().getPageWithDataById(pageId)?.strokes?.count { it.points.size >= 3 } ?: 0
+        }
+
+        // 2. Export the notebook to a .xopp file.
+        val exportedFile = File(context.cacheDir, "roundtrip_exported.xopp")
+        val xoppFile = XoppFile(
+            context,
+            PageRepository(db.pageDao()),
+            BookRepository(db.notebookDao(), db.pageDao()),
+            DefaultAppEventBus()
+        )
+        exportedFile.outputStream().use { out ->
+            xoppFile.writeToXoppStream(ExportTarget.Book(sourceBook.id), out)
+        }
+        assertTrue("Export produced an empty file", exportedFile.length() > 0)
+
+        // 3. Import the exported file and compare.
+        val secondResult = importEngine.import(
+            Uri.fromFile(exportedFile), ImportOptions(bookTitle = "RoundTripCopy.xopp")
+        )
+        assertTrue("Re-import failed: $secondResult", secondResult is AppResult.Success)
+        val secondPageIds = (secondResult as AppResult.Success).data
+
+        assertEquals("Page count changed in round trip", firstPageIds.size, secondPageIds.size)
+
+        val roundTrippedCounts = secondPageIds.map { pageId ->
+            db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0
+        }
+        assertEquals(
+            "Exportable stroke counts changed in round trip",
+            exportableStrokeCounts,
+            roundTrippedCounts
+        )
+
+        val roundTrippedFirstPage = db.pageDao().getById(secondPageIds.first())!!
+        assertEquals("Background style lost in round trip", "lined", roundTrippedFirstPage.background)
+        assertEquals("native", roundTrippedFirstPage.backgroundType)
     }
 }

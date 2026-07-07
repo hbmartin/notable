@@ -130,6 +130,7 @@
     <string name="sync_manual_actions_title">Akcje ręczne</string>
 
     <!-- Sync Field Labels -->
+    <string name="sync_server_url_http_warning">Ostrzeżenie: ten adres używa zwykłego HTTP. Hasło i notatki będą przesyłane bez szyfrowania; użyj https://, jeśli serwer to obsługuje.</string>
     <string name="sync_server_url_note">Uwaga: \"/notable\" zostanie dodane do ścieżki, aby uporządkować pliki.</string>
     <string name="sync_server_url_label">URL serwera</string>
     <string name="sync_username_label">Nazwa użytkownika</string>

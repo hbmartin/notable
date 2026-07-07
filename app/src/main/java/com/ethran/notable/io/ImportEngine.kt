@@ -135,42 +135,49 @@ class ImportEngine @Inject constructor(
         val importedPageIds = mutableListOf<String>()
         var persistentError: DomainError? = null
 
-        xoppFile.importBook(
-            uri = uri,
-            onPageCreated = { page ->
-                try {
-                    // TODO: Handle conflicts with existing pages.
-                    pageRepo.create(page.copy(notebookId = book.id))
-                    bookRepo.addPage(book.id, page.id)
-                    importedPageIds.add(page.id)
-                } catch (e: Exception) {
-                    val errMessage = "Failed to import page ${page.id}: ${e.message}"
-                    appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                    val error = DomainError.DatabaseError(errMessage)
-                    persistentError = persistentError?.let { it + error } ?: error
+        try {
+            xoppFile.importBook(
+                uri = uri,
+                onPageCreated = { page ->
+                    try {
+                        // TODO: Handle conflicts with existing pages.
+                        pageRepo.create(page.copy(notebookId = book.id))
+                        bookRepo.addPage(book.id, page.id)
+                        importedPageIds.add(page.id)
+                    } catch (e: Exception) {
+                        val errMessage = "Failed to import page ${page.id}: ${e.message}"
+                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
+                        val error = DomainError.DatabaseError(errMessage)
+                        persistentError = persistentError?.let { it + error } ?: error
+                    }
+                },
+                onStrokeBatch = { strokes ->
+                    try {
+                        strokeRepo.create(strokes)
+                    } catch (e: Exception) {
+                        val errMessage = "Failed to import stroke batch: ${e.message}"
+                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
+                        val error = DomainError.DatabaseError(errMessage)
+                        persistentError = persistentError?.let { it + error } ?: error
+                    }
+                },
+                onPageFinalized = { _, images ->
+                    try {
+                        imageRepo.create(images)
+                    } catch (e: Exception) {
+                        val errMessage = "Failed to import page images: ${e.message}"
+                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
+                        val error = DomainError.DatabaseError(errMessage)
+                        persistentError = persistentError?.let { it + error } ?: error
+                    }
                 }
-            },
-            onStrokeBatch = { strokes ->
-                try {
-                    strokeRepo.create(strokes)
-                } catch (e: Exception) {
-                    val errMessage = "Failed to import stroke batch: ${e.message}"
-                    appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                    val error = DomainError.DatabaseError(errMessage)
-                    persistentError = persistentError?.let { it + error } ?: error
-                }
-            },
-            onPageFinalized = { _, images ->
-                try {
-                    imageRepo.create(images)
-                } catch (e: Exception) {
-                    val errMessage = "Failed to import page images: ${e.message}"
-                    appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                    val error = DomainError.DatabaseError(errMessage)
-                    persistentError = persistentError?.let { it + error } ?: error
-                }
-            }
-        )
+            )
+        } catch (e: Exception) {
+            val error = DomainError.UnexpectedState(
+                "Could not read XOPP file: ${e.message ?: e.javaClass.simpleName}"
+            )
+            persistentError = persistentError?.let { it + error } ?: error
+        }
 
         return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(importedPageIds)
     }
