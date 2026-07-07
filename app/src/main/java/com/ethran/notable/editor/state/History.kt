@@ -120,7 +120,9 @@ class History @AssistedInject constructor(
         }
     }
 
-    private fun undoRedo(type: UndoRedoType): Rect? {
+    // internal (not private) so instrumented tests can drive the stack logic
+    // directly, without the CanvasEventBus commit handshake in MoveHistory.
+    internal fun undoRedo(type: UndoRedoType): Rect? {
         val originList =
             if (type == UndoRedoType.Undo) undoList else redoList
         val targetList =

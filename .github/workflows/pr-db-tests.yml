@@ -47,4 +47,7 @@ jobs:
             -camera-back none
           disable-animations: true
           boot-timeout: 600
-          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.ethran.notable.data.db
+          # Migration tests live in com.ethran.notable.db and DB edge-case tests
+          # in com.ethran.notable.data.db; the runner's package filter takes only
+          # one prefix, so run the full suite rather than silently skipping one.
+          script: ./gradlew connectedDebugAndroidTest

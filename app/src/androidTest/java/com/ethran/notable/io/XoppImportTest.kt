@@ -147,4 +147,91 @@ class XoppImportTest {
             assertEquals("Page $pageId does not point to correct notebook", book.id, page?.notebookId)
         }
     }
+
+    @Test(timeout = 60000)
+    fun importCorruptXopp_reportsError() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        val testFile = File(context.cacheDir, "corrupt.xopp")
+        testFile.writeBytes(byteArrayOf(0x00, 0x01, 0x02, 0x03, 0x42, 0x42, 0x42))
+        val uri = Uri.fromFile(testFile)
+
+        val result = importEngine.import(uri, ImportOptions(bookTitle = "Corrupt.xopp"))
+
+        assertTrue(
+            "Corrupt file must fail the import, got: $result",
+            result is AppResult.Error
+        )
+    }
+
+    @Test(timeout = 120000)
+    fun exportImportRoundTrip_preservesPagesStrokesAndBackground() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val testContext = InstrumentationRegistry.getInstrumentation().context
+
+        // 1. Import the fixture to get a real notebook into the database.
+        val sourceFile = File(context.cacheDir, "roundtrip_source.xopp")
+        testContext.assets.open("test_notebook.xopp").use { input ->
+            sourceFile.outputStream().use { input.copyTo(it) }
+        }
+        val firstResult = importEngine.import(
+            Uri.fromFile(sourceFile), ImportOptions(bookTitle = "RoundTripSource.xopp")
+        )
+        assertTrue("Fixture import failed: $firstResult", firstResult is AppResult.Success)
+        val firstPageIds = (firstResult as AppResult.Success).data
+        val sourceBook = db.notebookDao().getAll().first { it.title == "RoundTripSource" }
+
+        // Give the first page a native background style so the round trip exercises it.
+        val firstPage = db.pageDao().getById(firstPageIds.first())!!
+        db.pageDao().update(firstPage.copy(background = "lined", backgroundType = "native"))
+
+        val strokeCounts = firstPageIds.map { pageId ->
+            db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0
+        }
+
+        // 2. Export the notebook to a .xopp file.
+        val exportedFile = File(context.cacheDir, "roundtrip_exported.xopp")
+        val xoppFile = XoppFile(
+            context,
+            PageRepository(db.pageDao()),
+            BookRepository(db.notebookDao(), db.pageDao()),
+            DefaultAppEventBus()
+        )
+        exportedFile.outputStream().use { out ->
+            xoppFile.writeToXoppStream(ExportTarget.Book(sourceBook.id), out)
+        }
+        assertTrue("Export produced an empty file", exportedFile.length() > 0)
+
+        // 3. Import the exported file and compare.
+        val secondResult = importEngine.import(
+            Uri.fromFile(exportedFile), ImportOptions(bookTitle = "RoundTripCopy.xopp")
+        )
+        assertTrue("Re-import failed: $secondResult", secondResult is AppResult.Success)
+        val secondPageIds = (secondResult as AppResult.Success).data
+
+        assertEquals("Page count changed in round trip", firstPageIds.size, secondPageIds.size)
+
+        val roundTrippedCounts = secondPageIds.map { pageId ->
+            db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0
+        }
+        // The exporter skips degenerate strokes (fewer than 3 points), so each
+        // page may have at most as many strokes as the original — never more,
+        // and pages with real content must not come back empty.
+        firstPageIds.indices.forEach { i ->
+            assertTrue(
+                "Page $i gained strokes in round trip (${strokeCounts[i]} -> ${roundTrippedCounts[i]})",
+                roundTrippedCounts[i] <= strokeCounts[i]
+            )
+            if (strokeCounts[i] >= 3) {
+                assertTrue(
+                    "Page $i lost all strokes in round trip",
+                    roundTrippedCounts[i] > 0
+                )
+            }
+        }
+
+        val roundTrippedFirstPage = db.pageDao().getById(secondPageIds.first())!!
+        assertEquals("Background style lost in round trip", "lined", roundTrippedFirstPage.background)
+        assertEquals("native", roundTrippedFirstPage.backgroundType)
+    }
 }
