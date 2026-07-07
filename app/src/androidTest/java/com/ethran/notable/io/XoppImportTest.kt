@@ -2,6 +2,7 @@ package com.ethran.notable.io
 
 import android.content.Context
 import android.net.Uri
+import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -27,6 +28,8 @@ class XoppImportTest {
 
     private lateinit var db: AppDatabase
     private lateinit var importEngine: ImportEngine
+    private var previousScreenWidth: Int = 0
+    private var previousScreenHeight: Int = 0
 
     @Before
     fun setUp() {
@@ -35,6 +38,8 @@ class XoppImportTest {
         // XoppFile scales by A4_WIDTH / SCREEN_WIDTH; these globals are only set
         // by MainActivity, which never runs here. Give them a realistic e-ink
         // resolution so import/export use a finite scale factor.
+        previousScreenWidth = SCREEN_WIDTH
+        previousScreenHeight = SCREEN_HEIGHT
         SCREEN_WIDTH = 1404
         SCREEN_HEIGHT = 1872
 
@@ -50,7 +55,7 @@ class XoppImportTest {
         val xoppFile = XoppFile(context, pageRepo, bookRepo, appEventBus)
 
         importEngine = ImportEngine(
-            context, pageRepo, bookRepo, strokeRepo, imageRepo, appEventBus
+            context, db, pageRepo, bookRepo, strokeRepo, imageRepo, appEventBus
         ).apply {
             this.xoppFile = xoppFile
         }
@@ -59,6 +64,8 @@ class XoppImportTest {
     @After
     fun tearDown() {
         db.close()
+        SCREEN_WIDTH = previousScreenWidth
+        SCREEN_HEIGHT = previousScreenHeight
     }
 
     @Test(timeout = 60000)
@@ -171,6 +178,11 @@ class XoppImportTest {
             "Corrupt file must fail the import, got: $result",
             result is AppResult.Error
         )
+        assertTrue(
+            "Corrupt import must not leave notebooks behind",
+            db.notebookDao().getAll().isEmpty()
+        )
+        assertEquals("Corrupt import must not leave pages behind", 0, rowCount("page"))
     }
 
     // Two full imports plus an export and complete stroke read-backs of both
@@ -236,5 +248,12 @@ class XoppImportTest {
         val roundTrippedFirstPage = db.pageDao().getById(secondPageIds.first())!!
         assertEquals("Background style lost in round trip", "lined", roundTrippedFirstPage.background)
         assertEquals("native", roundTrippedFirstPage.backgroundType)
+    }
+
+    private fun rowCount(table: String): Int {
+        db.query(SimpleSQLiteQuery("SELECT COUNT(*) FROM $table")).use { cursor ->
+            cursor.moveToFirst()
+            return cursor.getInt(0)
+        }
     }
 }

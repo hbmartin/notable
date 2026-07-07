@@ -1,5 +1,6 @@
 package com.ethran.notable.data
 
+import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,6 +22,7 @@ class NotebookTouchDebouncer(
     private val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
     private val touchAction: suspend (notebookId: String) -> Unit
 ) {
+    private val log = ShipBook.getLogger("NotebookTouchDebouncer")
     private val pending = mutableSetOf<String>()
     private var flushJob: Job? = null
 
@@ -43,7 +45,10 @@ class NotebookTouchDebouncer(
             flushJob = null
             copy
         }
-        toTouch.forEach { touchAction(it) }
+        toTouch.forEach { id ->
+            runCatching { touchAction(id) }
+                .onFailure { log.e("Failed to touch notebook $id", it) }
+        }
     }
 
     companion object {

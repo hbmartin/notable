@@ -493,7 +493,7 @@ fun SyncCredentialFields(
             text = stringResource(R.string.sync_server_url_http_warning),
             style = MaterialTheme.typography.caption,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colors.onSurface,
+            color = MaterialTheme.colors.error,
             modifier = Modifier.padding(top = 2.dp, start = 4.dp)
         )
     }

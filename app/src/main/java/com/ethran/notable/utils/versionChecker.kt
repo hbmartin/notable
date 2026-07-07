@@ -153,7 +153,7 @@ fun isLatestVersion(
     appEventBus: AppEventBus,
     force: Boolean = false,
     notifyOnFailure: Boolean = false
-): Boolean {
+): Boolean? {
     if (!force && isLatestVersion != null) return isLatestVersion!!
 
     try {
@@ -225,6 +225,7 @@ fun isLatestVersion(
             appEventBus.tryEmit(
                 AppEvent.ActionHint("Could not check for updates: ${e.message}", 4000)
             )
+            return null
         }
         return true
     }

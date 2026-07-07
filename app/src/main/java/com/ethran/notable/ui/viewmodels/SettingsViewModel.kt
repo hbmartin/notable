@@ -117,7 +117,9 @@ class SettingsViewModel @Inject constructor(
             // A forced check here is user-initiated, so failures must be reported.
             val result = isLatestVersion(context, appEventBus, force, notifyOnFailure = force)
             withContext(Dispatchers.Main) {
-                isLatestVersion = result
+                if (result != null) {
+                    isLatestVersion = result
+                }
             }
         }
     }

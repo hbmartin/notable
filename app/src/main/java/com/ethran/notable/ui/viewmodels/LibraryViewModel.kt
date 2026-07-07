@@ -148,7 +148,9 @@ class LibraryViewModel @Inject constructor(
     init {
         // Run network/heavy checks in the background
         viewModelScope.launch(Dispatchers.IO) {
-            _isLatestVersion.value = isLatestVersion(context, appEventBus, true)
+            isLatestVersion(context, appEventBus, true)?.let {
+                _isLatestVersion.value = it
+            }
         }
     }
 

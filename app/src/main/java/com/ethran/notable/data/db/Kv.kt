@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -98,8 +99,7 @@ class KvProxy @Inject constructor(
 
     // getSyncSettings runs on every sync trigger; notify about an undecryptable
     // password once per process instead of on each call.
-    @Volatile
-    private var decryptFailureNotified = false
+    private val decryptFailureNotified = AtomicBoolean(false)
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -139,8 +139,7 @@ class KvProxy @Inject constructor(
             is AppResult.Success -> settings.copy(password = decrypted.data)
             is AppResult.Error -> {
                 log.w("Failed to decrypt sync password: ${decrypted.error.userMessage}")
-                if (!decryptFailureNotified) {
-                    decryptFailureNotified = true
+                if (decryptFailureNotified.compareAndSet(false, true)) {
                     appEventBus.tryEmit(
                         AppEvent.GenericError(
                             "Stored sync password could not be decrypted " +
