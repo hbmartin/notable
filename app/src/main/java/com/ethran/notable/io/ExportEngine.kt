@@ -51,7 +51,9 @@ sealed class ExportTarget {
 data class ExportOptions(
     val copyToClipboard: Boolean = true,
     val targetFolderUri: Uri? = null, // can be made to also get from it fileName.
-    val overwrite: Boolean = false,   // TODO: Fix it -- for now it does not work correctly (it overwrites the files too often)
+    // true: replace an existing file of the same name; false: keep it and write
+    // to a uniquely suffixed sibling ("name (1).ext").
+    val overwrite: Boolean = false,
     val fileName: String? = null
 )
 
@@ -620,14 +622,17 @@ class ExportEngine @Inject constructor(
             isFileDirectory(dirUri) -> {
                 val parent = File(requireNotNull(dirUri.path))
                 if (!parent.exists()) parent.mkdirs()
-                val target = File(parent, displayName)
+                var target = File(parent, displayName)
                 if (target.exists()) {
                     if (overwrite) {
                         if (!target.delete()) {
                             log.w("Failed to delete existing file for overwrite: ${target.absolutePath}")
                         }
                     } else {
-                        return target.toUri()
+                        // The caller opens the returned Uri with a truncating stream,
+                        // so returning the existing file would overwrite it anyway.
+                        // Allocate a uniquely suffixed sibling instead.
+                        target = uniqueSibling(parent, displayName)
                     }
                 }
                 try {
@@ -698,17 +703,16 @@ class ExportEngine @Inject constructor(
             }
         }
 
-        if (existingChildUri != null) {
-            if (overwrite) {
-                try {
-                    android.provider.DocumentsContract.deleteDocument(resolver, existingChildUri)
-                } catch (e: Exception) {
-                    log.w("Failed to delete existing document before overwrite: ${e.message}")
-                }
-            } else {
-                return existingChildUri
+        if (existingChildUri != null && overwrite) {
+            try {
+                android.provider.DocumentsContract.deleteDocument(resolver, existingChildUri)
+            } catch (e: Exception) {
+                log.w("Failed to delete existing document before overwrite: ${e.message}")
             }
         }
+        // When not overwriting, fall through to createDocument: SAF providers
+        // uniquify the display name themselves ("name (1).ext"), whereas returning
+        // the existing document would let the caller truncate it.
 
         return try {
             android.provider.DocumentsContract.createDocument(
@@ -754,6 +758,20 @@ class ExportEngine @Inject constructor(
 
     private fun listOfNotBlank(vararg parts: String): List<String> =
         parts.filter { it.isNotBlank() }
+
+    // First non-existing "name (n).ext" next to the taken displayName.
+    private fun uniqueSibling(parent: File, displayName: String): File {
+        val dot = displayName.lastIndexOf('.')
+        val base = if (dot > 0) displayName.substring(0, dot) else displayName
+        val ext = if (dot > 0) displayName.substring(dot) else ""
+        var counter = 1
+        var candidate = File(parent, "$base ($counter)$ext")
+        while (candidate.exists()) {
+            counter++
+            candidate = File(parent, "$base ($counter)$ext")
+        }
+        return candidate
+    }
 
     // Retrieves the 0-based page number of a specific page within a book.
     suspend fun getPageNumber(bookId: String, id: String): Int {
