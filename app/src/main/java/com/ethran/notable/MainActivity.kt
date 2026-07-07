@@ -225,7 +225,9 @@ class MainActivity : ComponentActivity() {
             if ((event?.repeatCount ?: 0) > 0) return true
             val isNext = keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
                     || keyCode == KeyEvent.KEYCODE_PAGE_DOWN
-            CanvasEventBus.hardwarePageTurn.tryEmit(isNext)
+            lifecycleScope.launch {
+                CanvasEventBus.hardwarePageTurn.emit(isNext)
+            }
             return true
         }
         return super.onKeyDown(keyCode, event)
