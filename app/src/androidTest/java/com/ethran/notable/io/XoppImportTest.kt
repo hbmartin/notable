@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ethran.notable.SCREEN_HEIGHT
+import com.ethran.notable.SCREEN_WIDTH
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.data.events.DefaultAppEventBus
 import com.ethran.notable.data.db.*
@@ -29,6 +31,13 @@ class XoppImportTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // XoppFile scales by A4_WIDTH / SCREEN_WIDTH; these globals are only set
+        // by MainActivity, which never runs here. Give them a realistic e-ink
+        // resolution so import/export use a finite scale factor.
+        SCREEN_WIDTH = 1404
+        SCREEN_HEIGHT = 1872
+
         db = TestDatabaseFactory.createInMemory(context)
 
         // Manual DI for a focused integration test
@@ -185,8 +194,10 @@ class XoppImportTest {
         val firstPage = db.pageDao().getById(firstPageIds.first())!!
         db.pageDao().update(firstPage.copy(background = "lined", backgroundType = "native"))
 
-        val strokeCounts = firstPageIds.map { pageId ->
-            db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0
+        // The exporter skips degenerate strokes (fewer than 3 points), so the
+        // round trip should preserve exactly the exportable strokes.
+        val exportableStrokeCounts = firstPageIds.map { pageId ->
+            db.pageDao().getPageWithDataById(pageId)?.strokes?.count { it.points.size >= 3 } ?: 0
         }
 
         // 2. Export the notebook to a .xopp file.
@@ -214,21 +225,11 @@ class XoppImportTest {
         val roundTrippedCounts = secondPageIds.map { pageId ->
             db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0
         }
-        // The exporter skips degenerate strokes (fewer than 3 points), so each
-        // page may have at most as many strokes as the original — never more,
-        // and pages with real content must not come back empty.
-        firstPageIds.indices.forEach { i ->
-            assertTrue(
-                "Page $i gained strokes in round trip (${strokeCounts[i]} -> ${roundTrippedCounts[i]})",
-                roundTrippedCounts[i] <= strokeCounts[i]
-            )
-            if (strokeCounts[i] >= 3) {
-                assertTrue(
-                    "Page $i lost all strokes in round trip",
-                    roundTrippedCounts[i] > 0
-                )
-            }
-        }
+        assertEquals(
+            "Exportable stroke counts changed in round trip",
+            exportableStrokeCounts,
+            roundTrippedCounts
+        )
 
         val roundTrippedFirstPage = db.pageDao().getById(secondPageIds.first())!!
         assertEquals("Background style lost in round trip", "lined", roundTrippedFirstPage.background)

@@ -63,8 +63,20 @@ class XoppFile @Inject constructor(
     private val appEventBus: AppEventBus,
 ) {
     private val log = ShipBook.getLogger("XoppFile")
-    private val scaleFactor = A4_WIDTH.toFloat() / SCREEN_WIDTH
-    private val maxPressure = EpdController.getMaxTouchPressure()
+
+    // SCREEN_WIDTH is 0 on non-Onyx devices (and in test processes) until
+    // MainActivity measures the display. A zero divisor makes scaleFactor
+    // infinite: imports collapse coordinates to 0 and exports emit NaN, which
+    // SQLite stores as NULL and the Stroke NOT NULL constraints then reject.
+    // Read lazily (not at construction) so a Hilt singleton created before the
+    // display is measured doesn't freeze a bad value.
+    private val scaleFactor: Float
+        get() = if (SCREEN_WIDTH > 0) A4_WIDTH.toFloat() / SCREEN_WIDTH else 1f
+
+    // Same guard: getMaxTouchPressure() is 0 off-device, which would turn every
+    // reconstructed pressure into 0/NaN. 4096 matches the Stroke entity default.
+    private val maxPressure: Float =
+        EpdController.getMaxTouchPressure().toFloat().takeIf { it > 0f } ?: 4096f
 
     /**
      * Holds mutable buffers that are allocated once per import operation and reused across
