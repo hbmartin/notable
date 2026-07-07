@@ -46,8 +46,12 @@ jobs:
 
       - name: Run Android Lint
         # Informational for now (abortOnError=false in app/build.gradle);
-        # the HTML report is uploaded as a build artifact below.
+        # the HTML report is uploaded as a build artifact below. Bounded and
+        # non-blocking: lint is slow/memory-hungry on the shared runner and
+        # must never hold the required checks hostage.
         run: ./gradlew lintDebug
+        timeout-minutes: 20
+        continue-on-error: true
 
       - name: Upload lint report
         if: always()
