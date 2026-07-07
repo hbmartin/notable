@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch supersedes any still-running check.
+concurrency:
+  group: pr-unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
