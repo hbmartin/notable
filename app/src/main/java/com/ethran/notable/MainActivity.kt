@@ -222,11 +222,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (isPageTurnKey(keyCode)) {
+            if ((event?.repeatCount ?: 0) > 0) return true
             val isNext = keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
                     || keyCode == KeyEvent.KEYCODE_PAGE_DOWN
-            lifecycleScope.launch {
-                CanvasEventBus.hardwarePageTurn.emit(isNext)
-            }
+            CanvasEventBus.hardwarePageTurn.tryEmit(isNext)
             return true
         }
         return super.onKeyDown(keyCode, event)

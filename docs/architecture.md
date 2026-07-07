@@ -21,7 +21,7 @@ Contents:
 
 ## High-level component map
 
-```
+```text
 MainActivity (fullscreen, key events, lifecycle → CanvasEventBus signals)
 └── NotableApp (Compose root, navigation)
     ├── Library / HomeView        — folders, quick pages, notebooks
@@ -39,7 +39,7 @@ handle WebDAV sync (see `webdav-sync-technical.md`).
 
 `EditorView` (Compose) assembles one editor session:
 
-```
+```text
 EditorView
 ├── EditorViewModel      — toolbar/UI state (ToolbarUiState), page navigation,
 │                          one-time UI events, canvas commands

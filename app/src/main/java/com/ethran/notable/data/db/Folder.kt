@@ -12,6 +12,7 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.withTransaction
 import io.shipbook.shipbooksdk.ShipBook
 import java.util.Date
 import java.util.UUID
@@ -63,6 +64,7 @@ interface FolderDao {
 }
 
 class FolderRepository @Inject constructor(
+    private val database: AppDatabase,
     private val db: FolderDao
 ) {
     private val log = ShipBook.getLogger("FolderRepository")
@@ -119,14 +121,16 @@ class FolderRepository @Inject constructor(
      * @return true when the folder ends up under [newParentId], false when rejected.
      */
     suspend fun move(folderId: String, newParentId: String?): Boolean {
-        val folder = db.get(folderId) ?: return false
-        if (newParentId == folder.parentFolderId) return true // already there
-        if (newParentId != null && isSelfOrDescendant(folderId, newParentId)) {
-            log.w("move: rejected moving folder $folderId into its own subtree ($newParentId)")
-            return false
+        return database.withTransaction {
+            val folder = db.get(folderId) ?: return@withTransaction false
+            if (newParentId == folder.parentFolderId) return@withTransaction true // already there
+            if (newParentId != null && isSelfOrDescendant(folderId, newParentId)) {
+                log.w("move: rejected moving folder $folderId into its own subtree ($newParentId)")
+                return@withTransaction false
+            }
+            db.update(folder.copy(parentFolderId = newParentId, updatedAt = Date()))
+            true
         }
-        db.update(folder.copy(parentFolderId = newParentId, updatedAt = Date()))
-        return true
     }
 
     /** True when [candidateId] is [folderId] itself or lies anywhere below it. */

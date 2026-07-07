@@ -133,7 +133,6 @@ class DrawCanvas(
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 log.i("surface destroyed ${this@DrawCanvas.hashCode()}")
-                holder.removeCallback(this)
                 // Only the canvas whose input handler currently owns the raw-input
                 // surface may close the raw drawing session; a stale canvas being torn
                 // down after a newer one claimed the surface must leave it alone.

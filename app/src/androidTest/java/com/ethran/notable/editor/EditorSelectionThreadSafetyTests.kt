@@ -157,12 +157,13 @@ class EditorSelectionThreadSafetyTests {
         val pageRepository = PageRepository(db.pageDao())
         val strokeRepository = StrokeRepository(db.strokeDao())
         val imageRepository = ImageRepository(db.ImageDao())
-        val folderRepository = FolderRepository(db.folderDao())
+        val folderRepository = FolderRepository(db, db.folderDao())
 
         val kvRepository = KvRepository(db.kvDao(), context)
         val kvProxy = KvProxy(kvRepository, CryptoHelper(), DefaultAppEventBus())
 
         val appRepository = AppRepository(
+            database = db,
             bookRepository = bookRepository,
             pageRepository = pageRepository,
             strokeRepository = strokeRepository,
