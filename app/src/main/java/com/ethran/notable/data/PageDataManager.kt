@@ -6,7 +6,6 @@ import android.content.res.Configuration
 import android.database.sqlite.SQLiteConstraintException
 import android.graphics.Bitmap
 import android.graphics.Rect
-import android.os.FileObserver
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.geometry.Offset
@@ -25,10 +24,7 @@ import com.ethran.notable.data.model.BackgroundType.ImageRepeating
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.saveHQPagePreview
 import com.ethran.notable.editor.utils.savePageThumbnail
-import com.ethran.notable.io.IN_IGNORED
-import com.ethran.notable.io.fileObserverEventNames
 import com.ethran.notable.io.loadBackgroundBitmap
-import com.ethran.notable.io.waitForFileAvailable
 import com.ethran.notable.utils.chunked
 import com.ethran.notable.utils.logCallStack
 import com.onyx.android.sdk.data.reader.PageId
@@ -38,14 +34,12 @@ import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.File
 import java.lang.ref.SoftReference
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -72,8 +66,6 @@ data class CachedBackground(val path: String, val pageNumber: Int, val scale: Fl
     }
 }
 
-private const val NOTEBOOK_TOUCH_DEBOUNCE_MS = 5_000L
-
 // Cache manager companion object
 @Singleton
 class PageDataManager @Inject constructor(
@@ -95,12 +87,6 @@ class PageDataManager @Inject constructor(
     private val pageToBackgroundKey = HashMap<String, String>()
     private val bitmapCache = LinkedHashMap<String, SoftReference<Bitmap>>()
 
-    // observe background file changes
-    // fileObservers: filename to observer
-    // fileToPages: filename to files with this file
-    private val fileObservers = mutableMapOf<String, FileObserver>()
-    private val fileToPages = mutableMapOf<String, MutableSet<String>>()
-    val invalidateFileFlow = MutableSharedFlow<String>(extraBufferCapacity = 64)
 
     // Needs to be observable by UI, for scroll bars (read during composition in ScrollIndicator).
     // These are Compose snapshot states, but they are written from background coroutines
@@ -141,8 +127,19 @@ class PageDataManager @Inject constructor(
     private val dataLoadingJobs = mutableMapOf<String, Job>()
     val dataLoadingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    private val backgroundFileWatcher = BackgroundFileWatcher(dataLoadingScope, appEventBus)
+    private val notebookTouchDebouncer = NotebookTouchDebouncer(dataScope) { notebookId ->
+        appRepository.bookRepository.touch(notebookId)
+    }
+
     init {
-        startFileInvalidationCollector()
+        backgroundFileWatcher.startCollector { pageId ->
+            invalidateBackground(pageId)
+            if (pageId == currentPage) {
+                CanvasEventBus.forceUpdate.emit(null)
+                appEventBus.tryEmit(AppEvent.ActionHint("Background file changed", 4000))
+            }
+        }
     }
 
     /**
@@ -567,17 +564,22 @@ class PageDataManager @Inject constructor(
     }
 
     fun indexStrokes(scope: CoroutineScope, pageId: String) {
-        // TODO: it Does use lock, is it safe?
         scope.launch {
-            strokesById[pageId] =
-                hashMapOf(*strokes[pageId]!!.map { s -> s.id to s }.toTypedArray())
+            // The stroke list can be mutated (or the page evicted) while this
+            // coroutine runs; build the index from a snapshot under the lock.
+            synchronized(accessLock) {
+                val pageStrokes = strokes[pageId] ?: return@launch
+                strokesById[pageId] = HashMap(pageStrokes.associateBy { it.id })
+            }
         }
     }
 
     fun indexImages(scope: CoroutineScope, pageId: String) {
         scope.launch {
-            imagesById[pageId] =
-                hashMapOf(*images[pageId]!!.map { img -> img.id to img }.toTypedArray())
+            synchronized(accessLock) {
+                val pageImages = images[pageId] ?: return@launch
+                imagesById[pageId] = HashMap(pageImages.associateBy { it.id })
+            }
         }
     }
 
@@ -662,32 +664,9 @@ class PageDataManager @Inject constructor(
         }
     }
 
-    // Every pen action lands here; writing the notebook row each time would
-    // rewrite it dozens of times per minute (and dirty sync state just as often),
-    // so touches are collected and flushed at most once per debounce window.
-    private val pendingNotebookTouches = mutableSetOf<String>()
-    private var notebookTouchFlushJob: Job? = null
-
     private fun updateParentNotebookTimestamp() {
         val notebookId = pageFromDb?.notebookId ?: return
-        synchronized(pendingNotebookTouches) {
-            pendingNotebookTouches.add(notebookId)
-            if (notebookTouchFlushJob?.isActive != true) {
-                notebookTouchFlushJob = dataScope.launch {
-                    delay(NOTEBOOK_TOUCH_DEBOUNCE_MS)
-                    flushPendingNotebookTouches()
-                }
-            }
-        }
-    }
-
-    private suspend fun flushPendingNotebookTouches() {
-        val toTouch = synchronized(pendingNotebookTouches) {
-            val copy = pendingNotebookTouches.toList()
-            pendingNotebookTouches.clear()
-            copy
-        }
-        toTouch.forEach { appRepository.bookRepository.touch(it) }
+        notebookTouchDebouncer.touch(notebookId)
     }
 
     fun setScrollInDb() {
@@ -759,7 +738,7 @@ class PageDataManager @Inject constructor(
                 pageToBackgroundKey[pageId] = background.id
 
                 if (observeBg)
-                    observeBackgroundFile(pageId, background.path)
+                    backgroundFileWatcher.watch(pageId, background.path)
             }
         }
     }
@@ -790,112 +769,6 @@ class PageDataManager @Inject constructor(
             appRepository.getPageNumber(pageFromDb?.notebookId!!, pageId)
         log.d("Page number for page($pageNumber): $pageId")
         return pageNumber
-    }
-
-    /**
-     * Start observing a background file for changes.
-     * Registers the pageId to the file, and launches a FileObserver if not already present.
-     */
-    private fun observeBackgroundFile(pageId: String, filePath: String) {
-        synchronized(fileObservers) {
-            fileToPages.getOrPut(filePath) { mutableSetOf() }.add(pageId)
-            if (fileObservers.containsKey(filePath)) return // Already observing this file
-
-            val file = File(filePath)
-            if (!file.exists() || !file.canRead()) {
-                log.w("Cannot observe background file: $filePath does not exist or is not readable")
-                return
-            }
-            val mask = (FileObserver.CREATE or
-                    FileObserver.DELETE or
-                    FileObserver.DELETE_SELF or
-                    FileObserver.CLOSE_WRITE or
-                    FileObserver.MOVED_TO or
-                    FileObserver.MOVE_SELF)
-
-            // Launch a FileObserver for this file
-            val observer = object : FileObserver(file, mask) {
-                override fun onEvent(event: Int, path: String?) {
-                    dataLoadingScope.launch {
-                        if (event == IN_IGNORED)
-                            return@launch
-                        val eventString = fileObserverEventNames(event)
-
-                        log.d("Background file changed: $filePath [event=$eventString]")
-                        if (event == DELETE || event == DELETE_SELF) {
-                            log.d("Background file deleted.")
-                            synchronized(fileObservers) {
-                                fileObservers.remove(filePath)?.stopWatching()
-                            }
-                            if (!waitForFileAvailable(filePath)) {
-                                log.w("File changed, but does not exist: $filePath")
-                                appEventBus.tryEmit(
-                                    AppEvent.ActionHint(
-                                        "Background does not exist",
-                                        3000
-                                    )
-                                )
-                                return@launch
-                            } else
-                                observeBackgroundFile(pageId, filePath)
-                        }
-
-
-                        invalidateFileFlow.emit(filePath)
-                    }
-                }
-            }
-            observer.startWatching()
-            fileObservers[filePath] = observer
-        }
-    }
-
-
-    /**
-     * Starts the collector to process file invalidation events.
-     * Uses chunked batching to process all events received in a 10ms window.
-     */
-    fun startFileInvalidationCollector() {
-        dataLoadingScope.launch {
-            invalidateFileFlow.chunked(10) // Batch events every 20ms
-                .collect { filePathBatch ->
-                    val uniqueFilePaths = filePathBatch.distinct()
-                    if (uniqueFilePaths.isEmpty()) return@collect
-                    log.i("Persisting batch of fileChanges: $uniqueFilePaths")
-                    for (filePath in uniqueFilePaths) {
-                        // Invalidate all pages that use this file
-                        fileToPages[filePath]?.forEach { pid ->
-                            invalidateBackground(pid)
-                            if (pid == currentPage) {
-                                CanvasEventBus.forceUpdate.emit(null)
-                                appEventBus.tryEmit(
-                                    AppEvent.ActionHint(
-                                        "Background file changed",
-                                        4000
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-        }
-    }
-
-    /**
-     * Stop observing the background file for the given page.
-     * Cleans up observers if no more pages are using the file.
-     */
-    private fun stopObservingBackground(pageId: String) {
-        synchronized(fileObservers) {
-            val iterator = fileToPages.entries.iterator()
-            while (iterator.hasNext()) {
-                val (filePath, pageIds) = iterator.next()
-                if (pageIds.remove(pageId) && pageIds.isEmpty()) {
-                    fileObservers.remove(filePath)?.stopWatching()
-                    iterator.remove()
-                }
-            }
-        }
     }
 
     private fun invalidateBackground(pageId: String) {
@@ -966,7 +839,7 @@ class PageDataManager @Inject constructor(
             if (key != null && !pageToBackgroundKey.values.any { it == key }) {
                 backgroundCache.remove(key)
             }
-            stopObservingBackground(pageId)
+            backgroundFileWatcher.unwatch(pageId)
         }
         return true
     }
