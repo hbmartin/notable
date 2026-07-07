@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import java.lang.ref.WeakReference
 import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.min
@@ -70,11 +71,11 @@ class OnyxInputHandler(
         // handler ask whether it is still the owner (see DrawCanvas surfaceDestroyed).
         // Kept private to this class instead of a global mutable variable.
         @Volatile
-        private var rawInputSurfaceOwner: OnyxInputHandler? = null
+        private var rawInputSurfaceOwner: WeakReference<OnyxInputHandler>? = null
     }
 
     /** True while this handler is the last one to have claimed the raw-input surface. */
-    fun ownsRawInputSurface(): Boolean = rawInputSurfaceOwner === this
+    fun ownsRawInputSurface(): Boolean = rawInputSurfaceOwner?.get() === this
 
     /**
      * Drops this handler's claim on the raw-input surface (no-op if a newer handler
@@ -82,7 +83,7 @@ class OnyxInputHandler(
      * reference doesn't keep the whole canvas/page graph alive after the editor closes.
      */
     fun releaseRawInputSurface() {
-        if (rawInputSurfaceOwner === this) rawInputSurfaceOwner = null
+        if (rawInputSurfaceOwner?.get() === this) rawInputSurfaceOwner = null
     }
 
     // TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper
@@ -90,8 +91,9 @@ class OnyxInputHandler(
     val touchHelper by lazy {
         val helper = if (DeviceCompat.isOnyxDevice) {
             try {
-                rawInputSurfaceOwner = this
-                TouchHelper.create(drawCanvas, inputCallback)
+                val createdHelper = TouchHelper.create(drawCanvas, inputCallback)
+                if (createdHelper != null) rawInputSurfaceOwner = WeakReference(this)
+                createdHelper
             } catch (t: Throwable) {
                 Log.w("OnyxInputHandler", "TouchHelper.create failed: ${t.message}")
                 null
@@ -220,7 +222,7 @@ class OnyxInputHandler(
         log.i("Update editable surface")
         // (Re)claim the raw-input surface: this runs whenever our canvas's surface is
         // (re)created, e.g. after a release on surfaceDestroyed during sleep/rotation.
-        if (touchHelper != null) rawInputSurfaceOwner = this
+        if (touchHelper != null) rawInputSurfaceOwner = WeakReference(this)
         coroutineScope.launch {
             onSurfaceInit(drawCanvas)
             val toolbarHeight =

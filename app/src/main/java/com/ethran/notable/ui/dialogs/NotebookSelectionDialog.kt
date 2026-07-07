@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +43,7 @@ fun ShowNotebookSelectionDialog(
     onCancel: () -> Unit,
     onConfirm: (notebookId: String) -> Unit
 ) {
-    var books by remember { mutableStateOf<List<Notebook>>(emptyList()) }
+    var books by remember { mutableStateOf<List<Notebook>?>(null) }
     var selectedBookId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -66,31 +67,40 @@ fun ShowNotebookSelectionDialog(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            if (books.isEmpty()) {
-                Text(text = "No notebooks yet.", fontSize = 16.sp)
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(8.dp)
-                ) {
-                    books.forEach { book ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedBookId = book.id }
-                                .background(if (selectedBookId == book.id) Color.LightGray else Color.Transparent)
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = book.title,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal
-                            )
+            val loadedBooks = books
+            when {
+                loadedBooks == null -> {
+                    CircularProgressIndicator()
+                }
+
+                loadedBooks.isEmpty() -> {
+                    Text(text = "No notebooks yet.", fontSize = 16.sp)
+                }
+
+                else -> {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(8.dp)
+                    ) {
+                        loadedBooks.forEach { book ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedBookId = book.id }
+                                    .background(if (selectedBookId == book.id) Color.LightGray else Color.Transparent)
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = book.title,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
                         }
                     }
                 }

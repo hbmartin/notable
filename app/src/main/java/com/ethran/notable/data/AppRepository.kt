@@ -1,6 +1,7 @@
 package com.ethran.notable.data
 
 import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.data.db.AppDatabase
 import com.ethran.notable.data.db.BookRepository
 import com.ethran.notable.data.db.FolderRepository
 import com.ethran.notable.data.db.ImageRepository
@@ -12,6 +13,7 @@ import com.ethran.notable.data.db.getPageIndex
 import com.ethran.notable.data.db.newPage
 import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.model.BackgroundType
+import androidx.room.withTransaction
 import io.shipbook.shipbooksdk.ShipBook
 import java.util.Date
 import java.util.UUID
@@ -22,6 +24,7 @@ private val log = ShipBook.getLogger("appRepository")
 
 @Singleton
 class AppRepository @Inject constructor(
+    private val database: AppDatabase,
     val bookRepository: BookRepository,
     val pageRepository: PageRepository,
     val strokeRepository: StrokeRepository,
@@ -155,21 +158,23 @@ class AppRepository @Inject constructor(
      *         already belongs to a notebook, or the notebook doesn't exist.
      */
     suspend fun moveQuickPageToBook(pageId: String, notebookId: String): Boolean {
-        val page = pageRepository.getById(pageId) ?: return false
-        if (page.notebookId != null) {
-            log.w("moveQuickPageToBook: page $pageId already belongs to ${page.notebookId}")
-            return false
-        }
-        val book = bookRepository.getById(notebookId) ?: return false
-        pageRepository.update(
-            page.copy(
-                notebookId = book.id,
-                parentFolderId = null,
-                updatedAt = Date()
+        return database.withTransaction {
+            val page = pageRepository.getById(pageId) ?: return@withTransaction false
+            if (page.notebookId != null) {
+                log.w("moveQuickPageToBook: page $pageId already belongs to ${page.notebookId}")
+                return@withTransaction false
+            }
+            val book = bookRepository.getById(notebookId) ?: return@withTransaction false
+            pageRepository.update(
+                page.copy(
+                    notebookId = book.id,
+                    parentFolderId = null,
+                    updatedAt = Date()
+                )
             )
-        )
-        bookRepository.addPage(book.id, page.id)
-        return true
+            bookRepository.addPage(book.id, page.id)
+            true
+        }
     }
 
     suspend fun newPageInBook(notebookId: String, index: Int = 0): String? {

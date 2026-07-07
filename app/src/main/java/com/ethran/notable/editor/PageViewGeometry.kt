@@ -19,6 +19,15 @@ import kotlin.math.min
 object PageViewGeometry {
     private val log = ShipBook.getLogger("PageViewGeometry")
 
+    private fun rect(left: Int, top: Int, right: Int, bottom: Int): Rect {
+        return Rect().apply {
+            this.left = left
+            this.top = top
+            this.right = right
+            this.bottom = bottom
+        }
+    }
+
     /**
      * Computes the zoom level that a pinch [scaleDelta] should produce.
      *
@@ -79,7 +88,7 @@ object PageViewGeometry {
         val top = max(0, dy)
         val right = min(screenW, dx + screenW)
         val bottom = min(screenH, dy + screenH)
-        return Rect(left, top, right, bottom)
+        return rect(left, top, right, bottom)
     }
 
     /**
@@ -98,7 +107,7 @@ object PageViewGeometry {
         // Uncovered top band
         if (dstRect.top > 0) {
             bands.add(
-                Rect(
+                rect(
                     0,
                     0,
                     screenW,
@@ -109,7 +118,7 @@ object PageViewGeometry {
         // Uncovered bottom band
         if (dstRect.bottom < screenH) {
             bands.add(
-                Rect(
+                rect(
                     0, (dstRect.bottom - scaledOverlap).coerceAtLeast(0), screenW, screenH
                 )
             )
@@ -117,7 +126,7 @@ object PageViewGeometry {
         // Uncovered left band
         if (dstRect.left > 0) {
             bands.add(
-                Rect(
+                rect(
                     0,
                     (dstRect.top - scaledOverlap).coerceAtLeast(0),
                     (dstRect.left + scaledOverlap).coerceAtMost(screenW),
@@ -128,7 +137,7 @@ object PageViewGeometry {
         // Uncovered right band
         if (dstRect.right < screenW) {
             bands.add(
-                Rect(
+                rect(
                     (dstRect.right - scaledOverlap).coerceAtLeast(0),
                     (dstRect.top - scaledOverlap).coerceAtLeast(0),
                     screenW,
@@ -137,6 +146,6 @@ object PageViewGeometry {
             )
         }
 
-        return bands.filterNot { it.isEmpty }
+        return bands.filterNot { it.left >= it.right || it.top >= it.bottom }
     }
 }

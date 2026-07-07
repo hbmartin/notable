@@ -57,6 +57,7 @@ fun FolderConfigDialog(appRepository: AppRepository,
     var folder by remember { mutableStateOf<Folder?>(null) }
     var folderTitle by remember { mutableStateOf("") }
     var showMoveDialog by remember { mutableStateOf(false) }
+    var moveInProgress by remember { mutableStateOf(false) }
 
     LaunchedEffect(folderId) {
         val f = folderRepository.get(folderId)
@@ -78,22 +79,28 @@ fun FolderConfigDialog(appRepository: AppRepository,
             initialFolderId = folder!!.parentFolderId,
             onCancel = { showMoveDialog = false },
             onConfirm = { selectedFolderId ->
+                if (moveInProgress) return@ShowFolderSelectionDialog
+                moveInProgress = true
                 // Keep the dialog mounted until the move finishes: closing first would
                 // cancel this composition-bound scope and could silently drop the move
                 // (and the rejection snack with it).
                 scope.launch {
-                    val moved = withContext(NonCancellable) {
-                        folderRepository.move(folderId, selectedFolderId)
-                    }
-                    if (!moved) {
-                        snackManager.showOrUpdateSnack(
-                            SnackConf(
-                                text = "Cannot move a folder into itself or its subfolders",
-                                duration = 3000
+                    try {
+                        val moved = withContext(NonCancellable) {
+                            folderRepository.move(folderId, selectedFolderId)
+                        }
+                        if (!moved) {
+                            snackManager.showOrUpdateSnack(
+                                SnackConf(
+                                    text = "Cannot move a folder into itself or its subfolders",
+                                    duration = 3000
+                                )
                             )
-                        )
+                        }
+                        onClose()
+                    } finally {
+                        moveInProgress = false
                     }
-                    onClose()
                 }
             })
         return
