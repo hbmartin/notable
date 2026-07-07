@@ -2,6 +2,7 @@ package com.ethran.notable.sync
 
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
+import com.ethran.notable.utils.fold
 import com.ethran.notable.utils.logCallStack
 import com.ethran.notable.utils.map
 import com.ethran.notable.utils.onError
@@ -125,17 +126,34 @@ class WebDAVClient(
      * @return true if resource exists
      */
     fun exists(path: String): Boolean {
+        return existsResult(path).fold(
+            onSuccess = { it },
+            onError = {
+                Log.w(TAG, "exists($path) check failed: ${it.userMessage}")
+                false
+            }
+        )
+    }
+
+    fun existsResult(path: String): AppResult<Boolean, DomainError> {
         return try {
             val url = buildUrl(path)
             val request =
                 Request.Builder().url(url).head().header("Authorization", credentials).build()
 
             client.newCall(request).execute().use { response ->
-                response.code == HttpURLConnection.HTTP_OK
+                when {
+                    response.isSuccessful -> AppResult.Success(true)
+                    response.code == HttpURLConnection.HTTP_NOT_FOUND -> AppResult.Success(false)
+                    response.code == HttpURLConnection.HTTP_UNAUTHORIZED -> AppResult.Error(
+                        DomainError.SyncAuthError
+                    )
+
+                    else -> AppResult.Error(DomainError.SyncError("HEAD failed: ${response.code}"))
+                }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "exists($path) check failed: ${e.message}")
-            false
+            AppResult.Error(DomainError.NetworkError(e.message ?: "HEAD failed"))
         }
     }
 
@@ -226,14 +244,20 @@ class WebDAVClient(
                 Request.Builder().url(url).get().header("Authorization", credentials).build()
 
             client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    AppResult.Success(
-                        DownloadedFile(
-                            response.body.bytes(), response.header("ETag")
+                when {
+                    response.isSuccessful -> {
+                        AppResult.Success(
+                            DownloadedFile(
+                                response.body.bytes(), response.header("ETag")
+                            )
                         )
+                    }
+
+                    response.code == HttpURLConnection.HTTP_NOT_FOUND -> AppResult.Error(
+                        DomainError.NotFound(path)
                     )
-                } else {
-                    AppResult.Error(DomainError.SyncError("GET failed: ${response.code}"))
+
+                    else -> AppResult.Error(DomainError.SyncError("GET failed: ${response.code}"))
                 }
             }
         } catch (e: Exception) {

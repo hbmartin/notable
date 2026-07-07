@@ -219,6 +219,12 @@ fun BackgroundSelector(
                 log.i("PageSettingsModal: $pageBackgroundType")
             } catch (e: Exception) {
                 log.e("PdfPicker: copy failed: ${e.message}", e)
+                snackManager.showOrUpdateSnack(
+                    SnackConf(
+                        text = "Could not copy PDF background: ${e.message}",
+                        duration = 4000
+                    )
+                )
             }
         }
     }

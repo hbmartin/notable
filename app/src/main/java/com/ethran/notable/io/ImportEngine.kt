@@ -3,6 +3,8 @@ package com.ethran.notable.io
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.WorkerThread
+import androidx.room.withTransaction
+import com.ethran.notable.data.db.AppDatabase
 import com.ethran.notable.data.db.BookRepository
 import com.ethran.notable.data.db.ImageRepository
 import com.ethran.notable.data.db.Notebook
@@ -42,6 +44,7 @@ data class ImportOptions(
  */
 class ImportEngine @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val database: AppDatabase,
     private val pageRepo: PageRepository,
     private val bookRepo: BookRepository,
     private val strokeRepo: StrokeRepository,
@@ -120,66 +123,52 @@ class ImportEngine @Inject constructor(
     ): AppResult<List<String>, DomainError> {
         log.d("Importing Xopp file...")
         require(options.bookTitle != null) { "bookTitle cannot be null when importing Xopp file" }
-        val book = when (val target = resolveTargetBook(options) {
-            Notebook(
-                title = options.bookTitle,
-                parentFolderId = options.folderId,
-                defaultBackground = "blank",
-                defaultBackgroundType = BackgroundType.Native.key
-            )
-        }) {
-            is AppResult.Success -> target.data
-            is AppResult.Error -> return AppResult.Error(target.error)
-        }
-
         val importedPageIds = mutableListOf<String>()
-        var persistentError: DomainError? = null
 
-        try {
-            xoppFile.importBook(
-                uri = uri,
-                onPageCreated = { page ->
-                    try {
+        return try {
+            database.withTransaction {
+                val book = when (val target = resolveTargetBook(options) {
+                    Notebook(
+                        title = options.bookTitle,
+                        parentFolderId = options.folderId,
+                        defaultBackground = "blank",
+                        defaultBackgroundType = BackgroundType.Native.key
+                    )
+                }) {
+                    is AppResult.Success -> target.data
+                    is AppResult.Error -> throw ImportFailedException(target.error)
+                }
+
+                xoppFile.importBook(
+                    uri = uri,
+                    onPageCreated = { page ->
                         // TODO: Handle conflicts with existing pages.
                         pageRepo.create(page.copy(notebookId = book.id))
                         bookRepo.addPage(book.id, page.id)
                         importedPageIds.add(page.id)
-                    } catch (e: Exception) {
-                        val errMessage = "Failed to import page ${page.id}: ${e.message}"
-                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                        val error = DomainError.DatabaseError(errMessage)
-                        persistentError = persistentError?.let { it + error } ?: error
-                    }
-                },
-                onStrokeBatch = { strokes ->
-                    try {
+                    },
+                    onStrokeBatch = { strokes ->
                         strokeRepo.create(strokes)
-                    } catch (e: Exception) {
-                        val errMessage = "Failed to import stroke batch: ${e.message}"
-                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                        val error = DomainError.DatabaseError(errMessage)
-                        persistentError = persistentError?.let { it + error } ?: error
-                    }
-                },
-                onPageFinalized = { _, images ->
-                    try {
+                    },
+                    onPageFinalized = { _, images ->
                         imageRepo.create(images)
-                    } catch (e: Exception) {
-                        val errMessage = "Failed to import page images: ${e.message}"
-                        appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                        val error = DomainError.DatabaseError(errMessage)
-                        persistentError = persistentError?.let { it + error } ?: error
                     }
-                }
-            )
+                )
+            }
+            AppResult.Success(importedPageIds)
+        } catch (e: ImportFailedException) {
+            AppResult.Error(e.error)
+        } catch (e: android.database.SQLException) {
+            val error = DomainError.DatabaseError("Failed to import XOPP into database: ${e.message}")
+            appEventBus.emit(AppEvent.LogMessage("importBook", error.userMessage))
+            AppResult.Error(error)
         } catch (e: Exception) {
             val error = DomainError.UnexpectedState(
                 "Could not read XOPP file: ${e.message ?: e.javaClass.simpleName}"
             )
-            persistentError = persistentError?.let { it + error } ?: error
+            appEventBus.emit(AppEvent.LogMessage("importBook", error.userMessage))
+            AppResult.Error(error)
         }
-
-        return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(importedPageIds)
     }
 
     private suspend fun handleImportPDF(
@@ -229,7 +218,6 @@ class ImportEngine @Inject constructor(
         return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(importedPageIds)
     }
 
-
     /**
      * Extracts the book title from a file URI.
      */
@@ -273,4 +261,5 @@ class ImportEngine @Inject constructor(
         return name
     }
 
+    private class ImportFailedException(val error: DomainError) : RuntimeException(error.userMessage)
 }

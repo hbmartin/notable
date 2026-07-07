@@ -58,7 +58,8 @@ class NotebookReconciliationService @Inject constructor(
             ?: return AppResult.Error(DomainError.NotFound("Notebook $notebookId"))
 
         val remotePath = SyncPaths.manifestFile(notebookId)
-        val remoteExists = webdavClient.exists(remotePath)
+        val remoteExists = webdavClient.existsResult(remotePath)
+            .onFailure { return AppResult.Error(it) }
 
         return if (remoteExists) {
             webdavClient.getFileWithMetadata(remotePath).flatMap { remoteManifest ->
@@ -167,17 +168,14 @@ class NotebookReconciliationService @Inject constructor(
         for (pageId in pageIds) {
             val localPage = appRepository.pageRepository.getById(pageId)
             val pagePath = SyncPaths.pageFile(notebookId, pageId)
-            val remoteBytes = if (webdavClient.exists(pagePath)) {
-                webdavClient.getFile(pagePath).fold(
-                    onSuccess = { it },
-                    onError = { error ->
-                        logger.w(TAG, "Failed to fetch remote page $pageId: ${error.userMessage}")
-                        null
-                    }
-                )
-            } else {
-                null
+            val remoteBytesResult = fetchRemotePageBytes(webdavClient, pagePath)
+            if (remoteBytesResult is AppResult.Error) {
+                val error = remoteBytesResult.error
+                logger.w(TAG, "Failed to fetch remote page $pageId: ${error.userMessage}")
+                persistentError = persistentError?.let { it + error } ?: error
+                continue
             }
+            val remoteBytes = (remoteBytesResult as AppResult.Success).data
             val remoteUpdatedAt = remoteBytes?.let {
                 NotebookSerializer.getPageUpdatedAt(it.decodeToString())
             }
@@ -214,6 +212,26 @@ class NotebookReconciliationService @Inject constructor(
         }
 
         return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(Unit)
+    }
+
+    private fun fetchRemotePageBytes(
+        webdavClient: WebDAVClient,
+        pagePath: String
+    ): AppResult<ByteArray?, DomainError> {
+        val exists = webdavClient.existsResult(pagePath)
+            .onFailure { return AppResult.Error(it) }
+        if (!exists) return AppResult.Success(null)
+
+        return when (val result = webdavClient.getFile(pagePath)) {
+            is AppResult.Success -> AppResult.Success(result.data)
+            is AppResult.Error -> {
+                if (result.error is DomainError.NotFound) {
+                    AppResult.Success(null)
+                } else {
+                    AppResult.Error(result.error)
+                }
+            }
+        }
     }
 
     companion object {
