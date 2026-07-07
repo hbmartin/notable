@@ -7,6 +7,7 @@ commonsCompress = "1.28.0"
 coreKtx = "1.19.0"
 coreTesting = "2.2.0"
 dagger = "2.60"
+detekt = "1.23.8"
 errorproneAnnotations = "2.50.0"
 espressoCore = "3.7.0"
 feather = "1.0.0"
@@ -92,6 +93,7 @@ shipbooksdk = { group = "io.shipbook", name = "shipbooksdk", version.ref = "ship
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 google-dagger-hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "googleDaggerHiltAndroid" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }

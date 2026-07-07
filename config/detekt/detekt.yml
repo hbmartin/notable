@@ -1,0 +1,47 @@
+# Overrides on top of detekt's default config (buildUponDefaultConfig = true).
+# Tuned for this codebase: Compose UI + e-ink rendering code.
+
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    threshold: 120
+  LongParameterList:
+    active: false
+  TooManyFunctions:
+    active: false
+  CyclomaticComplexMethod:
+    threshold: 25
+  LargeClass:
+    threshold: 1200
+  NestedBlockDepth:
+    threshold: 6
+
+exceptions:
+  # The codebase deliberately catches broad exceptions at IO/render boundaries
+  # and aggregates them into AppResult/DomainError.
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
+    active: false
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    active: false
+
+style:
+  MagicNumber:
+    active: false
+  ReturnCount:
+    active: false
+  MaxLineLength:
+    active: false
+  ThrowsCount:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']

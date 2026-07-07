@@ -5,6 +5,17 @@ plugins {
     alias libs.plugins.jetbrains.kotlin.plugin.compose
     alias libs.plugins.jetbrains.kotlin.plugin.serialization
     alias libs.plugins.google.dagger.hilt.android
+    alias libs.plugins.detekt
+}
+
+// Static analysis: ./gradlew detekt (CI runs this on every PR).
+// Pre-existing findings live in config/detekt/baseline.xml - regenerate with
+// scripts/detekt-baseline.sh after intentional cleanups, never to hide new issues.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    source.setFrom(files("src/main/java", "src/test/java", "src/androidTest/java"))
 }
 
 android {
@@ -116,6 +127,11 @@ android {
     namespace = 'com.ethran.notable'
     sourceSets {
         androidTest.assets.srcDirs += files("${project.projectDir}/schemas")
+    }
+    lint {
+        // Informational for now: CI runs lintDebug and uploads the report,
+        // but errors don't fail the build until a lint baseline is created.
+        abortOnError false
     }
     testOptions {
         unitTests {
