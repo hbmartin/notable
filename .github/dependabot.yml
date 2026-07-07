@@ -24,7 +24,6 @@ updates:
 
     ignore:
       # These remain fully manual.
-      - dependency-name: "com.google.firebase:*"
       - dependency-name: "org.jetbrains.kotlin*"
       - dependency-name: "com.android.tools.build:*"
       - dependency-name: "com.google.devtools.ksp*"
