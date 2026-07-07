@@ -34,6 +34,11 @@ jobs:
         # Replace with your specific unit test task if different
         run: ./gradlew testDebugUnitTest
 
+      - name: Compile instrumented tests
+        # Instrumented tests only execute on the emulator workflows, but a PR
+        # that breaks their compilation should fail fast here.
+        run: ./gradlew assembleDebugAndroidTest
+
       - name: Run detekt
         # Static analysis gate. Pre-existing findings are captured in
         # config/detekt/baseline.xml; only new findings fail this step.
