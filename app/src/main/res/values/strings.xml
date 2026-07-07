@@ -3,6 +3,13 @@
     <string name="home_quick_pages">Quick pages</string>
     <string name="home_notebooks">Notebooks</string>
     <string name="home_add_new_folder">Add new folder</string>
+    <string name="home_search_hint">Search notebooks and folders…</string>
+    <string name="home_clear_search">Clear search</string>
+    <string name="home_sort">Sort</string>
+    <string name="home_sort_recently_created">Recently created</string>
+    <string name="home_sort_recently_modified">Recently modified</string>
+    <string name="home_sort_name">Name</string>
+    <string name="home_no_search_results">Nothing matches your search.</string>
     <string name="home_new_folder">New Folder</string>
     <string name="home_view_name">Library</string>
     <string name="settings_title">Settings</string>

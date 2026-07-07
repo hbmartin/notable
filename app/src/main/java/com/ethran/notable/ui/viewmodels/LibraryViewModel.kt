@@ -7,6 +7,7 @@ import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.PageDataManager
+import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.db.Notebook
@@ -43,14 +44,18 @@ data class LibraryUiState(
     val breadcrumbFolders: List<Folder> = emptyList(),
     val folders: List<Folder> = emptyList(),
     val books: List<Notebook> = emptyList(),
-    val singlePages: List<Page> = emptyList()
+    val singlePages: List<Page> = emptyList(),
+    val searchQuery: String = "",
+    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated
 )
 
 // Private data class for clean Flow combining
 private data class LibraryDatabaseState(
     val folders: List<Folder> = emptyList(),
     val books: List<Notebook> = emptyList(),
-    val singlePages: List<Page> = emptyList()
+    val singlePages: List<Page> = emptyList(),
+    val searchQuery: String = "",
+    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,6 +77,8 @@ class LibraryViewModel @Inject constructor(
     private val pageRepository = appRepository.pageRepository
 
     private val _folderId = MutableStateFlow<String?>(null)
+    private val _searchQuery = MutableStateFlow("")
+    private val _sortOrder = MutableStateFlow(GlobalAppSettings.current.librarySortOrder)
     private val _isImporting = MutableStateFlow(false)
     private val _newlyCreatedBookId = MutableStateFlow<String?>(null)
     val newlyCreatedBookId: StateFlow<String?> = _newlyCreatedBookId
@@ -86,11 +93,33 @@ class LibraryViewModel @Inject constructor(
     private val _singlePagesFlow =
         _folderId.flatMapLatest { id -> pageRepository.getSinglePagesInFolder(id).asFlow() }
 
-    // 2. Group the 3 database flows semantically
+    // 2. Group the 3 database flows semantically, then apply search + sort
     private val _dbDataFlow = combine(
-        _foldersFlow, _booksFlow, _singlePagesFlow
-    ) { folders, books, pages ->
-        LibraryDatabaseState(folders, books, pages)
+        _foldersFlow, _booksFlow, _singlePagesFlow, _searchQuery, _sortOrder
+    ) { folders, books, pages, query, sort ->
+        LibraryDatabaseState(
+            folders = filterByTitle(folders, query) { it.title },
+            books = sortBooks(filterByTitle(books, query) { it.title }, sort),
+            singlePages = pages,
+            searchQuery = query,
+            sortOrder = sort
+        )
+    }
+
+    private inline fun <T> filterByTitle(
+        items: List<T>, query: String, crossinline title: (T) -> String
+    ): List<T> {
+        if (query.isBlank()) return items
+        return items.filter { title(it).contains(query.trim(), ignoreCase = true) }
+    }
+
+    private fun sortBooks(
+        books: List<Notebook>, sort: AppSettings.LibrarySortOrder
+    ): List<Notebook> = when (sort) {
+        AppSettings.LibrarySortOrder.RecentlyCreated -> books.sortedByDescending { it.createdAt }
+        AppSettings.LibrarySortOrder.RecentlyModified -> books.sortedByDescending { it.updatedAt }
+        AppSettings.LibrarySortOrder.Name ->
+            books.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
     }
 
     // 3. Expose the final UI State
@@ -104,7 +133,9 @@ class LibraryViewModel @Inject constructor(
             breadcrumbFolders = breadcrumbs,
             folders = dbData.folders,
             books = dbData.books,
-            singlePages = dbData.singlePages
+            singlePages = dbData.singlePages,
+            searchQuery = dbData.searchQuery,
+            sortOrder = dbData.sortOrder
         )
     }.stateIn(
         scope = viewModelScope,
@@ -122,6 +153,19 @@ class LibraryViewModel @Inject constructor(
 
     fun onPreviewRequested(pageId: String) {
         thumbnailBackfillQueue.enqueue(listOf(pageId))
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun setSortOrder(order: AppSettings.LibrarySortOrder) {
+        _sortOrder.value = order
+        viewModelScope.launch(Dispatchers.IO) {
+            appRepository.kvProxy.setAppSettings(
+                GlobalAppSettings.current.copy(librarySortOrder = order)
+            )
+        }
     }
 
     fun loadFolder(folderId: String?) {

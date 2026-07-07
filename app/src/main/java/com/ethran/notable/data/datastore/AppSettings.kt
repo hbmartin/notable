@@ -60,6 +60,8 @@ data class AppSettings(
     val holdAction: GestureAction = GestureAction.Select,
     val enableQuickNav: Boolean = true,
     val renameOnCreate: Boolean = true,
+    // Library (home view) notebook ordering.
+    val librarySortOrder: LibrarySortOrder = LibrarySortOrder.RecentlyCreated,
     // Turn pages in the editor with the volume / page-turn hardware buttons.
     val volumeButtonPageTurn: Boolean = false,
 
@@ -89,5 +91,10 @@ data class AppSettings(
 
     enum class Position {
         Top, Bottom, // Left,Right,
+    }
+
+    // RecentlyCreated matches the historical order (insertion order reversed).
+    enum class LibrarySortOrder {
+        RecentlyCreated, RecentlyModified, Name
     }
 }
