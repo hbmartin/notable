@@ -344,8 +344,10 @@ class XoppFile @Inject constructor(
         val parseState = ParseState()
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                GzipCompressorInputStream(BufferedInputStream(inputStream)).use { gzipIn ->
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: throw IOException("Could not open input stream for $uri")
+            inputStream.use {
+                GzipCompressorInputStream(BufferedInputStream(it)).use { gzipIn ->
                     val parser = Xml.newPullParser()
                     parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
                     parser.setInput(gzipIn, null)
@@ -368,7 +370,10 @@ class XoppFile @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            // Callers translate this into an AppResult.Error the UI can show;
+            // swallowing it here made corrupt files report "Import Successful".
             log.e("Error importing book from $uri: ${e.message}")
+            throw e
         }
     }
 

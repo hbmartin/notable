@@ -114,7 +114,8 @@ class SettingsViewModel @Inject constructor(
      */
     fun checkUpdate(context: Context, force: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
-            val result = isLatestVersion(context, appEventBus, force)
+            // A forced check here is user-initiated, so failures must be reported.
+            val result = isLatestVersion(context, appEventBus, force, notifyOnFailure = force)
             withContext(Dispatchers.Main) {
                 isLatestVersion = result
             }

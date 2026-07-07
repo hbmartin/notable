@@ -148,7 +148,12 @@ fun getCurrentVersionName(context: Context): String? {
 // cache
 var isLatestVersion: Boolean? = null
 
-fun isLatestVersion(context: Context, appEventBus: AppEventBus, force: Boolean = false): Boolean {
+fun isLatestVersion(
+    context: Context,
+    appEventBus: AppEventBus,
+    force: Boolean = false,
+    notifyOnFailure: Boolean = false
+): Boolean {
     if (!force && isLatestVersion != null) return isLatestVersion!!
 
     try {
@@ -213,7 +218,14 @@ fun isLatestVersion(context: Context, appEventBus: AppEventBus, force: Boolean =
 
 
     } catch (e: Exception) {
-        log.i("Failed to fetch latest release version: ${e.message}")
+        // Fail open (report "up to date") so a flaky network never nags at startup,
+        // but a user-initiated check must not silently pretend it succeeded.
+        log.w("Failed to fetch latest release version: ${e.message}")
+        if (notifyOnFailure) {
+            appEventBus.tryEmit(
+                AppEvent.ActionHint("Could not check for updates: ${e.message}", 4000)
+            )
+        }
         return true
     }
 }

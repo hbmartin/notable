@@ -86,6 +86,8 @@ import com.ethran.notable.editor.drawing.drawLinedBg
 import com.ethran.notable.editor.drawing.drawSquaredBg
 import com.ethran.notable.editor.utils.autoEInkAnimationOnScroll
 import com.ethran.notable.io.getPdfPageCount
+import com.ethran.notable.ui.LocalSnackContext
+import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.components.OnOffSwitch
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Loader
@@ -110,6 +112,7 @@ fun BackgroundSelector(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val snackManager = LocalSnackContext.current
     var pageBackground by remember { mutableStateOf(initialPageBackground) }
 
     // Only PDF-type backgrounds have a page count. Probing unconditionally used to
@@ -182,6 +185,12 @@ fun BackgroundSelector(
 
                 } catch (e: Exception) {
                     log.e("PickVisualMedia: copy failed: ${e.message}", e)
+                    snackManager.showOrUpdateSnack(
+                        SnackConf(
+                            text = "Could not copy background image: ${e.message}",
+                            duration = 4000
+                        )
+                    )
                 }
             }
         }
