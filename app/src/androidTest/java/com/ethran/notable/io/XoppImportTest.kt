@@ -173,7 +173,9 @@ class XoppImportTest {
         )
     }
 
-    @Test(timeout = 120000)
+    // Two full imports plus an export and complete stroke read-backs of both
+    // notebooks; measured ~2 min on the CI emulator, so give it generous room.
+    @Test(timeout = 300000)
     fun exportImportRoundTrip_preservesPagesStrokesAndBackground() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testContext = InstrumentationRegistry.getInstrumentation().context
