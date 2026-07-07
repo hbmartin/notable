@@ -12,6 +12,7 @@ import org.junit.Test
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class NotebookTouchDebouncerTest {
 
@@ -74,5 +75,37 @@ class NotebookTouchDebouncerTest {
         debouncer.touch("book-1")
         assertTrue("second flush did not happen", secondFlush.await(5, TimeUnit.SECONDS))
         assertEquals(listOf("book-1", "book-1"), touched)
+    }
+
+    @Test
+    fun `touch during active flush schedules another flush`() {
+        val touched = Collections.synchronizedList(mutableListOf<String>())
+        val firstFlushStarted = CountDownLatch(1)
+        val releaseFirstFlush = CountDownLatch(1)
+        val allFlushes = CountDownLatch(2)
+        val callCount = AtomicInteger(0)
+        val debouncer = NotebookTouchDebouncer(scope, debounceMs = 50) {
+            touched.add(it)
+            if (callCount.incrementAndGet() == 1) {
+                firstFlushStarted.countDown()
+                assertTrue(
+                    "test did not release first flush",
+                    releaseFirstFlush.await(5, TimeUnit.SECONDS)
+                )
+            }
+            allFlushes.countDown()
+        }
+
+        debouncer.touch("book-1")
+        assertTrue("first flush did not start", firstFlushStarted.await(5, TimeUnit.SECONDS))
+
+        debouncer.touch("book-2")
+        releaseFirstFlush.countDown()
+
+        assertTrue(
+            "touch during active flush was not flushed",
+            allFlushes.await(5, TimeUnit.SECONDS)
+        )
+        assertEquals(listOf("book-1", "book-2"), touched)
     }
 }

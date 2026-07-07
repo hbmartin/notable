@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -104,7 +105,7 @@ class LibraryViewModel @Inject constructor(
             searchQuery = query,
             sortOrder = sort
         )
-    }
+    }.flowOn(Dispatchers.Default)
 
     private inline fun <T> filterByTitle(
         items: List<T>, query: String, crossinline title: (T) -> String

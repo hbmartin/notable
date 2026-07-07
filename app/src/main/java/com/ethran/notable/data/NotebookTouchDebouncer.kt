@@ -40,6 +40,7 @@ class NotebookTouchDebouncer(
         val toTouch = synchronized(pending) {
             val copy = pending.toList()
             pending.clear()
+            flushJob = null
             copy
         }
         toTouch.forEach { touchAction(it) }
