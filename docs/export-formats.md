@@ -13,7 +13,7 @@ Overview
 - Options (ExportOptions):
     - copyToClipboard: copy a convenience link for some formats/targets
     - targetFolderUri: destination directory (SAF or file://)
-    - overwrite: best-effort replacement of existing files (currently **not working** - replaces all the files.)
+    - overwrite: true replaces an existing file of the same name; false keeps it and writes to a uniquely suffixed sibling ("name (1).ext")
     - fileName: base name override (extension added automatically)
 
 Currently supported formats
@@ -31,6 +31,7 @@ Core (Maintainer: @Ethran)
 - XOPP (Xournal++)
     - Book/Page: gzipped XML via XoppFile.writeToXoppStream
     - Includes tools, colors, pressure-derived widths; images embedded as base64
+    - Native background styles are exported (lined → lined, squared → graph, dotted → dotted; hexed and image/PDF backgrounds degrade to plain)
 
 ### Minimal interface for new exporters
 - Keep in mind that the export logic should evolve so ExportEngine provides the data and the format handler does the rest (similar to imports). See TODO in ExportEngine.
