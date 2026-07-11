@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -319,6 +320,21 @@ fun ToolbarContent(
                 // Right fixed section: undo/redo, navigation, menu
                 Row {
                     VerticalDivider()
+
+                    uiState.activePenBattery?.let { battery ->
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .height(35.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.active_pen_battery_label, battery),
+                                fontWeight = if (battery <= 15) FontWeight.Bold else FontWeight.Light,
+                            )
+                        }
+                        VerticalDivider()
+                    }
 
                     ToolbarButton(
                         onSelect = { onAction(ToolbarAction.Undo) },

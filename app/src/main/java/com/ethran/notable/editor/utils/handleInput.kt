@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import com.ethran.notable.data.db.StrokePoint
 import com.ethran.notable.data.model.SimplePointF
 import com.onyx.android.sdk.data.note.TouchPoint
+import kotlin.math.pow
 
 
 // Max delta time (ms) that fits in the uint16 dt channel. 0xFFFF (65535) is reserved as a
@@ -13,7 +14,39 @@ import com.onyx.android.sdk.data.note.TouchPoint
 // StrokePointConverter.DT_MAX_VALUE_INT.
 private const val DT_MAX_VALUE_MS = 65534L
 
-fun copyInput(touchPoints: List<TouchPoint>, scroll: Offset, scale: Float): List<StrokePoint> {
+fun remapPressure(
+    rawPressure: Float,
+    maxPressure: Float,
+    sensitivity: Float,
+    minimumPressureRatio: Float,
+): Float {
+    if (maxPressure <= 0f) return rawPressure
+    val normalized = (rawPressure / maxPressure).coerceIn(0f, 1f)
+    val safeSensitivity = sensitivity.coerceIn(0.25f, 4f)
+    val minimum = minimumPressureRatio.coerceIn(0f, 0.75f)
+    val curved = normalized.pow(1f / safeSensitivity)
+    return (minimum + (1f - minimum) * curved) * maxPressure
+}
+
+fun StrokePoint.withPressureSettings(setting: PenSetting, maxPressure: Float): StrokePoint {
+    val currentPressure = pressure ?: return this
+    return copy(
+        pressure = remapPressure(
+            rawPressure = currentPressure,
+            maxPressure = maxPressure,
+            sensitivity = setting.pressureSensitivity,
+            minimumPressureRatio = setting.minimumPressureRatio,
+        )
+    )
+}
+
+fun copyInput(
+    touchPoints: List<TouchPoint>,
+    scroll: Offset,
+    scale: Float,
+    pressureSetting: PenSetting? = null,
+    maxPressure: Float = 4096f,
+): List<StrokePoint> {
     if (touchPoints.isEmpty()) return emptyList()
     // Capture per-point delta time (ms relative to the first point) into StrokePoint.dt so
     // it can be persisted. The firmware stamps each TouchPoint with an absolute timestamp;
@@ -23,7 +56,11 @@ fun copyInput(touchPoints: List<TouchPoint>, scroll: Offset, scale: Float): List
     val baseTime = touchPoints.first().timestamp
     return touchPoints.map {
         val deltaMs = (it.timestamp - baseTime).coerceIn(0L, DT_MAX_VALUE_MS)
-        it.toStrokePoint(scroll, scale).copy(dt = deltaMs.toUShort())
+        val point = it.toStrokePoint(scroll, scale)
+        val adjusted = pressureSetting?.let { setting ->
+            point.withPressureSettings(setting, maxPressure)
+        } ?: point
+        adjusted.copy(dt = deltaMs.toUShort())
     }
 }
 

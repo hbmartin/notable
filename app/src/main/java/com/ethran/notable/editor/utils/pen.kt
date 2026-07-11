@@ -21,6 +21,9 @@ enum class Pen(val penName: String) {
             return entries.find { it.penName.equals(name, ignoreCase = true) } ?: BALLPEN
         }
     }
+
+    val supportsPressure: Boolean
+        get() = this == PENCIL || this == BRUSH || this == FOUNTAIN
 }
 
 fun penToStroke(pen: Pen): Int {
@@ -42,7 +45,11 @@ fun penToStroke(pen: Pen): Int {
 data class PenSetting(
     var strokeSize: Float,
     //TODO: Rename to strokeColor
-    var color: Int
+    var color: Int,
+    /** 1 is linear; values above 1 respond more quickly to light pressure. */
+    var pressureSensitivity: Float = 1f,
+    /** Minimum normalized pressure/width retained even for a very light stroke. */
+    var minimumPressureRatio: Float = 0f,
 )
 
 typealias NamedSettings = Map<String, PenSetting>

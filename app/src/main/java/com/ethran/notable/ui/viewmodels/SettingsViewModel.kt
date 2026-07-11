@@ -13,6 +13,8 @@ import com.ethran.notable.data.db.KvProxy
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.di.ApplicationScope
 import com.ethran.notable.sync.ConnectionTestResult
+import com.ethran.notable.sync.ConnectivityChecker
+import com.ethran.notable.sync.ConnectivityStatus
 import com.ethran.notable.sync.SyncLogger
 import com.ethran.notable.sync.SyncOrchestrator
 import com.ethran.notable.sync.SyncProgressReporter
@@ -26,6 +28,7 @@ import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
 import com.ethran.notable.utils.isLatestVersion
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +48,7 @@ data class SyncSettingsUiState(
     val passwordVisible: Boolean = false,
     val testingConnection: Boolean = false,
     val connectionStatus: AppResult<ConnectionTestResult, DomainError>? = null,
+    val connectivityStatus: ConnectivityStatus = ConnectivityStatus(),
     val syncLogs: List<SyncLogger.LogEntry> = emptyList(),
     val syncState: SyncState = SyncState.Idle,
     val showForceUploadConfirm: Boolean = false,
@@ -59,6 +63,7 @@ data class SyncSettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val kvProxy: KvProxy,
     private val syncOrchestrator: SyncOrchestrator,
     private val syncProgressReporter: SyncProgressReporter,
@@ -79,6 +84,7 @@ class SettingsViewModel @Inject constructor(
         private set
 
     init {
+        refreshConnectivityStatus()
         // Observe logs
         viewModelScope.launch {
             SyncLogger.logs.collect { logs ->
@@ -200,6 +206,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onTestConnection() {
+        refreshConnectivityStatus()
         val settings = syncUiState.syncSettings
         if (settings.serverUrl.isBlank() || settings.username.isBlank()) return
 
@@ -271,6 +278,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onManualSync() {
+        refreshConnectivityStatus()
         runSyncWithSnack(
             textDuring = "Sync initialized...", successMessage = "Sync completed successfully"
         ) {
@@ -283,6 +291,15 @@ class SettingsViewModel @Inject constructor(
                 )
             }
             result
+        }
+    }
+
+    private fun refreshConnectivityStatus() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val status = ConnectivityChecker(context).currentStatus()
+            withContext(Dispatchers.Main) {
+                syncUiState = syncUiState.copy(connectivityStatus = status)
+            }
         }
     }
 

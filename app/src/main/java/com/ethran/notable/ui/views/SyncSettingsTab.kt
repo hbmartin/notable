@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ethran.notable.R
 import com.ethran.notable.sync.ConnectionTestResult
+import com.ethran.notable.sync.ConnectivityStatus
 import com.ethran.notable.sync.SyncLogger
 import com.ethran.notable.sync.SyncSettings
 import com.ethran.notable.sync.SyncState
@@ -151,6 +152,9 @@ fun SyncSettings(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
+        ConnectivityStatusRow(state.connectivityStatus)
+        Spacer(modifier = Modifier.height(12.dp))
+
         ConnectionSection(
             state = state,
             callbacks = callbacks,
@@ -186,6 +190,33 @@ fun SyncSettings(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun ConnectivityStatusRow(status: ConnectivityStatus) {
+    val text = when {
+        !status.connected -> stringResource(R.string.sync_network_offline)
+        !status.validated -> stringResource(R.string.sync_network_unvalidated)
+        status.weakWifiSignal -> stringResource(
+            R.string.sync_network_weak_wifi,
+            status.wifiSignalLevel ?: 0,
+        )
+        status.wifi -> status.wifiSignalLevel?.let {
+            stringResource(R.string.sync_network_wifi, it)
+        } ?: stringResource(R.string.sync_network_wifi_unknown)
+        status.mobile -> stringResource(R.string.sync_network_mobile)
+        else -> stringResource(R.string.sync_network_connected)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (status.validated) Icons.Default.CheckCircle else Icons.Default.Warning,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colors.onSurface,
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = text, style = MaterialTheme.typography.caption)
     }
 }
 

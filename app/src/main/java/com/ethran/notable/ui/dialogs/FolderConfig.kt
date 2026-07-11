@@ -89,7 +89,11 @@ fun FolderConfigDialog(appRepository: AppRepository,
                             val moved = withContext(NonCancellable) {
                                 folderRepository.move(folderId, selectedFolderId)
                             }
-                            if (!moved) {
+                            if (moved) {
+                                onClose()
+                            } else {
+                                // Keep the picker open so the user can choose a valid
+                                // destination after reading why the move was refused.
                                 snackManager.showOrUpdateSnack(
                                     SnackConf(
                                         text = "Cannot move a folder into itself or its subfolders",
@@ -97,7 +101,6 @@ fun FolderConfigDialog(appRepository: AppRepository,
                                     )
                                 )
                             }
-                            onClose()
                         } finally {
                             moveInProgress = false
                         }

@@ -143,6 +143,7 @@ fun onSurfaceChanged(view: View) {
 
 
 fun onSurfaceDestroy(view: View, touchHelper: TouchHelper?) {
+    OnyxDisplayController.configureAutoSyncBuffer(false)
     if(touchHelper == null) return
     log.v("onSurfaceDestroy, (${view.left}, ${view.top} - ${view.right}, ${view.bottom})")
     touchHelper.setRawDrawingEnabled(false)
@@ -180,6 +181,7 @@ fun setupSurface(view: View, touchHelper: TouchHelper?, toolbarHeight: Int) {
         .openRawDrawing()
 
     touchHelper.setRawDrawingEnabled(true)
+    OnyxDisplayController.configureAutoSyncBuffer(GlobalAppSettings.current.autoSyncEinkBuffer)
 
     // Enable the firmware's native eraser indicator. MUST be called after setRawDrawingEnabled(true)
     // because that call internally resets it to disabled. Also re-asserted in onBeginRawErasing.
@@ -225,10 +227,14 @@ fun refreshScreenRegion(view: View, dirtyRect: Rect) {
         dirtyRect.height(),
         UpdateMode.ANIMATION_MONO
     )
+    OnyxDisplayController.recordPartialRefresh()
 }
 
-fun refreshScreen() {
-    EpdController.repaintEveryThing(UpdateMode.REGAL_PLUS)
+fun refreshScreen(forceClean: Boolean = false) {
+    OnyxDisplayController.fullRefresh(
+        adaptive = GlobalAppSettings.current.adaptiveEinkRefresh,
+        forceClean = forceClean,
+    )
 }
 
 fun restoreDefaults(view: View) {

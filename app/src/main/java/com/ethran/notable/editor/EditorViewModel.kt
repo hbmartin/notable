@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ethran.notable.R
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.copyImageToDatabase
@@ -23,6 +24,7 @@ import com.ethran.notable.editor.state.Mode
 import com.ethran.notable.editor.state.SelectionState
 import com.ethran.notable.editor.utils.DeviceCompat
 import com.ethran.notable.editor.utils.Eraser
+import com.ethran.notable.editor.utils.OnyxActivePenController
 import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.editor.utils.PenSetting
 import com.ethran.notable.io.ExportEngine
@@ -90,6 +92,7 @@ data class ToolbarUiState(
     val hasClipboard: Boolean = false,
     val isDrawing: Boolean = true,
     val isQuickNavOpen: Boolean = false,
+    val activePenBattery: Int? = null,
 ) {
     val isDrawingAllowed: Boolean
         get() = !isSelectionActive &&
@@ -197,6 +200,7 @@ class EditorViewModel @Inject constructor(
 
     // ---- Init guard ----
     private val didInitSettings = AtomicBoolean(false)
+    private val didWarnAboutPenBattery = AtomicBoolean(false)
 
     // ---- Selection state (kept for drawing logic compatibility) ----
     val selectionState = SelectionState()
@@ -239,6 +243,22 @@ class EditorViewModel @Inject constructor(
     }
 
     fun createHistory(page: PageView): History = historyFactory.create(page)
+
+    fun refreshActivePenStatus() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val settings = GlobalAppSettings.current
+            OnyxActivePenController.applyPreferences(settings)
+            val battery = OnyxActivePenController.batteryLevel()
+            _toolbarState.update { it.copy(activePenBattery = battery) }
+            val shouldWarn = settings.activePenLowBatteryWarning &&
+                    battery?.let { it <= 15 } == true
+            if (shouldWarn && didWarnAboutPenBattery.compareAndSet(false, true)) {
+                snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = context.getString(R.string.active_pen_low_battery, battery))
+                )
+            }
+        }
+    }
 
     // --------------------------------------------------------
     // Toolbar Action Dispatch

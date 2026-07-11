@@ -29,6 +29,25 @@
     <string name="continuous_zoom">Continuous Zoom</string>
     <string name="continuous_stroke_slider">Continuous Stroke Slider</string>
     <string name="monochrome_mode">Monochrome mode</string>
+    <string name="display_profile">E-ink display profile</string>
+    <string name="display_profile_system">System default</string>
+    <string name="display_profile_document">Document</string>
+    <string name="display_profile_color_ink">Color ink</string>
+    <string name="display_profile_grayscale">Grayscale</string>
+    <string name="display_profile_night">Night preview</string>
+    <string name="adaptive_eink_refresh">Adaptive cleaning refreshes</string>
+    <string name="auto_sync_eink_buffer">Synchronized handwriting buffer (experimental)</string>
+    <string name="active_pen_low_battery_warning">Warn when active pen battery is low</string>
+    <string name="active_pen_haptics">Active pen haptics</string>
+    <string name="active_pen_haptic_strength">Pen haptic strength</string>
+    <string name="active_pen_haptic_type">Pen haptic pattern</string>
+    <string name="haptic_strength_low">Low</string>
+    <string name="haptic_strength_medium">Medium</string>
+    <string name="haptic_strength_high">High</string>
+    <string name="pen_pressure_sensitivity">Pressure sensitivity</string>
+    <string name="pen_minimum_width">Minimum pressure width</string>
+    <string name="active_pen_battery_label">Pen %1$d%%</string>
+    <string name="active_pen_low_battery">Active pen battery is low (%1$d%%)</string>
     <string name="rename_on_create">Open properties on new notebook</string>
     <string name="paginate_pdf">Paginate PDF</string>
     <string name="preview_pdf_pagination">Preview PDF Pagination</string>
@@ -216,6 +235,13 @@
 
     <!-- Sync WiFi-only -->
     <string name="sync_wifi_required_message">Not syncing: WiFi-only sync is enabled and you\'re on mobile data. Connect to WiFi or disable the WiFi-only setting.</string>
+    <string name="sync_network_offline">Network: offline</string>
+    <string name="sync_network_unvalidated">Network connected but internet access is not validated</string>
+    <string name="sync_network_weak_wifi">Wi-Fi signal is weak (level %1$d)</string>
+    <string name="sync_network_wifi">Wi-Fi connected (level %1$d)</string>
+    <string name="sync_network_wifi_unknown">Wi-Fi connected</string>
+    <string name="sync_network_mobile">Mobile data connected</string>
+    <string name="sync_network_connected">Network connected</string>
 
     <!-- Sync Log -->
     <string name="sync_log_title">Activity Log</string>
