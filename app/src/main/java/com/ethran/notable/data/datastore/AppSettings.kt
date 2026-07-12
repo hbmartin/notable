@@ -54,6 +54,7 @@ data class AppSettings(
     val activePenHapticStrength: Int = 1,
     val activePenHapticType: Int = 0,
     val activePenLowBatteryWarning: Boolean = true,
+    val activePenLowBatteryThreshold: Int = 15,
     val paginatePdf: Boolean = true,
     val visualizePdfPagination: Boolean = false,
 

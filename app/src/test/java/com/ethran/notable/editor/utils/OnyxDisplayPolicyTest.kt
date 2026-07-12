@@ -34,4 +34,10 @@ class OnyxDisplayPolicyTest {
         assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 0, 6, true))
         assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 40, 1, true))
     }
+
+    @Test
+    fun selectFullRefreshMode_continuesCleaningCadenceAcrossCycles() {
+        assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 0, 12, true))
+        assertEquals(UpdateMode.REGAL, selectFullRefreshMode(regalDevice, 39, 13, true))
+    }
 }

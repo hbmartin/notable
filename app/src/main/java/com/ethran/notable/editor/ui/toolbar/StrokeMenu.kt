@@ -263,9 +263,13 @@ private fun PressureControls(value: PenSetting, onChange: (PenSetting) -> Unit) 
     ) {
         Text(stringResource(R.string.pen_pressure_sensitivity), color = Color.Black)
         Row(horizontalArrangement = Arrangement.Center) {
-            listOf("Soft" to 0.65f, "Normal" to 1f, "Firm" to 1.5f).forEach { (label, amount) ->
+            listOf(
+                R.string.pressure_sensitivity_soft to 0.65f,
+                R.string.pressure_sensitivity_normal to 1f,
+                R.string.pressure_sensitivity_firm to 1.5f,
+            ).forEach { (labelRes, amount) ->
                 ToolbarButton(
-                    text = label,
+                    text = stringResource(labelRes),
                     isSelected = value.pressureSensitivity == amount,
                     onSelect = { onChange(value.copy(pressureSensitivity = amount)) },
                 )
@@ -274,9 +278,9 @@ private fun PressureControls(value: PenSetting, onChange: (PenSetting) -> Unit) 
         Spacer(Modifier.height(4.dp))
         Text(stringResource(R.string.pen_minimum_width), color = Color.Black)
         Row(horizontalArrangement = Arrangement.Center) {
-            listOf("0%" to 0f, "10%" to 0.1f, "25%" to 0.25f).forEach { (label, amount) ->
+            listOf(0 to 0f, 10 to 0.1f, 25 to 0.25f).forEach { (percent, amount) ->
                 ToolbarButton(
-                    text = label,
+                    text = stringResource(R.string.percent_value, percent),
                     isSelected = value.minimumPressureRatio == amount,
                     onSelect = { onChange(value.copy(minimumPressureRatio = amount)) },
                 )

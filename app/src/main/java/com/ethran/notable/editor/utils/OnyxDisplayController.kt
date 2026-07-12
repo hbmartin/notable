@@ -55,9 +55,14 @@ object OnyxDisplayController {
             else -> listOf(requested, UpdateMode.GC)
         }.distinct()
 
+        // repaintEveryThing returns void, so the chain only advances when the SDK throws
+        // (e.g. a mode missing from old firmware). Firmware that silently ignores an
+        // unsupported mode reports success on the first entry.
         for (mode in fallbacks) {
             if (runCatching { EpdController.repaintEveryThing(mode) }.isSuccess) {
-                partialRefreshes.set(0)
+                // Plain REGAL preserves ghosting, so only a cleaning waveform pays down
+                // the debt the partial-refresh counter is tracking.
+                if (mode != UpdateMode.REGAL) partialRefreshes.set(0)
                 log.d("Full refresh completed with $mode")
                 return
             }
@@ -72,6 +77,9 @@ object OnyxDisplayController {
         clearOwnedProfile()
         if (profile == AppSettings.DisplayProfile.System) return
 
+        // Take ownership before touching the device so a partially applied profile is
+        // still torn down by clearOwnedProfile when a later SDK call throws.
+        appliedProfile = profile
         runCatching {
             when (profile) {
                 AppSettings.DisplayProfile.System -> Unit
@@ -100,7 +108,6 @@ object OnyxDisplayController {
                     if (OnyxCapabilities.current.supportsNightMode) EpdController.enableNightMode()
                 }
             }
-            appliedProfile = profile
             fullRefresh(adaptive = false, forceClean = true)
         }.onFailure {
             log.w("Unable to apply display profile $profile: ${it.message}")
@@ -108,7 +115,10 @@ object OnyxDisplayController {
         }
     }
 
-    /** Remove only the modes Notable may have enabled; called when the editor leaves composition. */
+    /**
+     * Remove only the modes Notable may have enabled. Color adjust and night mode are
+     * device-global, so this runs whenever the editor leaves the foreground or composition.
+     */
     @Synchronized
     fun clearOwnedProfile() {
         if (!OnyxCapabilities.current.isOnyxDevice) return

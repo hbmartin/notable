@@ -15,6 +15,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.editor.canvas.CanvasEventBus
@@ -74,11 +75,21 @@ fun EditorView(
     val context = LocalContext.current
     val snackManager = LocalSnackContext.current
     val scope = rememberCoroutineScope()
-    val displayProfile = GlobalAppSettings.current.displayProfile
+    val settings = GlobalAppSettings.current
 
-    DisposableEffect(displayProfile) {
-        OnyxDisplayController.applyProfile(displayProfile)
-        onDispose { OnyxDisplayController.clearOwnedProfile() }
+    // The color/night adjustments are device-global, so release them whenever the app
+    // leaves the foreground, not only when the editor leaves composition.
+    LifecycleResumeEffect(settings.displayProfile) {
+        OnyxDisplayController.applyProfile(settings.displayProfile)
+        onPauseOrDispose { OnyxDisplayController.clearOwnedProfile() }
+    }
+
+    LaunchedEffect(
+        settings.activePenHaptics,
+        settings.activePenHapticStrength,
+        settings.activePenHapticType,
+    ) {
+        viewModel.applyActivePenPreferences()
     }
 
     LaunchedEffect(viewModel) {

@@ -166,12 +166,31 @@ class SyncWorker(
 }
 
 internal fun isLikelyLocalServerUrl(rawUrl: String): Boolean {
-    val host = runCatching { URI(rawUrl).host?.lowercase() }.getOrNull() ?: return false
+    // URI only populates host when a scheme is present; tolerate entries
+    // like "192.168.1.5:8080/dav".
+    val candidate = if ("://" in rawUrl) rawUrl else "http://$rawUrl"
+    val host = runCatching { URI(candidate).host?.lowercase() }.getOrNull() ?: return false
     if (host == "localhost" || host.endsWith(".local")) return true
-    val octets = host.split('.').mapNotNull { it.toIntOrNull() }
-    if (octets.size != 4) return false
-    return octets[0] == 10 ||
+
+    // URI keeps the brackets around literal IPv6 hosts.
+    val bareHost = host.removeSurrounding("[", "]")
+    if (bareHost.contains(':')) return isLocalIpv6Address(bareHost)
+
+    val octets = host.split('.').map { it.toIntOrNull() ?: return false }
+    if (octets.size != 4 || octets.any { it !in 0..255 }) return false
+    return octets[0] == 127 ||
+            octets[0] == 10 ||
             (octets[0] == 172 && octets[1] in 16..31) ||
             (octets[0] == 192 && octets[1] == 168) ||
-            (octets[0] == 127)
+            (octets[0] == 169 && octets[1] == 254) ||
+            // Carrier-grade NAT range, also used by tailnet-style VPNs such as Tailscale.
+            (octets[0] == 100 && octets[1] in 64..127)
+}
+
+/** Loopback, unique-local (fc00::/7), and link-local (fe80::/10) IPv6 addresses. */
+private fun isLocalIpv6Address(address: String): Boolean {
+    if (address == "::1") return true
+    val firstGroup = address.substringBefore(':')
+    return firstGroup.startsWith("fc") || firstGroup.startsWith("fd") ||
+            (firstGroup.length == 4 && firstGroup.startsWith("fe") && firstGroup[2] in "89ab")
 }

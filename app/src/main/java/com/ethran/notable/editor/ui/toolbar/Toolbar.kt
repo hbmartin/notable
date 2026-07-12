@@ -322,6 +322,8 @@ fun ToolbarContent(
                     VerticalDivider()
 
                     uiState.activePenBattery?.let { battery ->
+                        val lowBattery =
+                            battery <= GlobalAppSettings.current.activePenLowBatteryThreshold
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -330,7 +332,7 @@ fun ToolbarContent(
                         ) {
                             Text(
                                 text = stringResource(R.string.active_pen_battery_label, battery),
-                                fontWeight = if (battery <= 15) FontWeight.Bold else FontWeight.Light,
+                                fontWeight = if (lowBattery) FontWeight.Bold else FontWeight.Light,
                             )
                         }
                         VerticalDivider()
