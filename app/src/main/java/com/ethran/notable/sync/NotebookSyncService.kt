@@ -5,6 +5,7 @@ import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.data.ensureBackgroundsFolder
 import com.ethran.notable.data.ensureImagesFolder
+import com.ethran.notable.io.safeLeafName
 import com.ethran.notable.sync.serializers.NotebookSerializer
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
@@ -233,7 +234,16 @@ class NotebookSyncService @Inject constructor(
             }
 
             if (page.backgroundType != "native" && page.background != "blank") {
-                val bgFile = File(ensureBackgroundsFolder(), page.background)
+                val directFile = File(page.background)
+                val bgFile = if (directFile.isFile) {
+                    directFile
+                } else {
+                    safeLeafName(page.background)?.let { File(ensureBackgroundsFolder(), it) }
+                }
+                if (bgFile == null) {
+                    val error = DomainError.SyncError("Local background has an unsafe filename")
+                    return@flatMap AppResult.Error(error)
+                }
                 if (bgFile.exists()) {
                     val remotePath = SyncPaths.backgroundFile(notebookId, bgFile.name)
                     if (!webdavClient.exists(remotePath)) {
@@ -315,7 +325,12 @@ class NotebookSyncService @Inject constructor(
         // 3. Download embedded images
         val updatedImages = images.map { image ->
             if (!image.uri.isNullOrEmpty()) {
-                val filename = extractFilename(image.uri)
+                val filename = safeLeafName(image.uri)
+                if (filename == null) {
+                    val error = DomainError.SyncError("Remote image has an unsafe filename")
+                    persistentError = persistentError?.plus(error) ?: error
+                    return@map image.copy(uri = null)
+                }
                 val localFile = File(ensureImagesFolder(), filename)
 
                 if (!localFile.exists()) {
@@ -339,8 +354,12 @@ class NotebookSyncService @Inject constructor(
         }
 
         // 4. Download page background
+        var pageToSave = page
         if (page.backgroundType != "native" && page.background != "blank") {
-            val filename = page.background
+            val filename = safeLeafName(page.background)
+                ?: return AppResult.Error(
+                    DomainError.SyncError("Remote background has an unsafe filename")
+                )
             val localFile = File(ensureBackgroundsFolder(), filename)
 
             if (!localFile.exists()) {
@@ -354,21 +373,22 @@ class NotebookSyncService @Inject constructor(
                     persistentError = persistentError?.plus(error) ?: error
                 }
             }
+            pageToSave = page.copy(background = localFile.absolutePath)
         }
 
         // 5. Save to database (protect against Room Exceptions)
         try {
-            val existingPage = appRepository.pageRepository.getById(page.id)
+            val existingPage = appRepository.pageRepository.getById(pageToSave.id)
             if (existingPage != null) {
                 val pageWithData =
-                    appRepository.pageRepository.getWithDataById(page.id) ?: return AppResult.Error(
-                        DomainError.DatabaseError("Failed to fetch existing page data for page ID: ${page.id}")
+                    appRepository.pageRepository.getWithDataById(pageToSave.id) ?: return AppResult.Error(
+                        DomainError.DatabaseError("Failed to fetch existing page data for page ID: ${pageToSave.id}")
                     )
                 appRepository.strokeRepository.deleteAll(pageWithData.strokes.map { it.id })
                 appRepository.imageRepository.deleteAll(pageWithData.images.map { it.id })
-                appRepository.pageRepository.update(page)
+                appRepository.pageRepository.update(pageToSave)
             } else {
-                appRepository.pageRepository.create(page)
+                appRepository.pageRepository.create(pageToSave)
             }
 
             appRepository.strokeRepository.create(strokes)
@@ -386,8 +406,6 @@ class NotebookSyncService @Inject constructor(
             AppResult.Success(Unit)
         }
     }
-
-    private fun extractFilename(uri: String): String = uri.substringAfterLast('/')
 
     private fun detectMimeType(file: File): String = when (file.extension.lowercase()) {
         "jpg", "jpeg" -> "image/jpeg"

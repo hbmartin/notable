@@ -44,6 +44,22 @@ interface FolderDao {
     @Query("SELECT * FROM folder WHERE parentFolderId IS :folderId")
     fun getChildrenFolders(folderId: String?): LiveData<List<Folder>>
 
+    @Query("""
+        SELECT * FROM folder
+        WHERE parentFolderId IS :folderId
+          AND (:searchQuery = '' OR title LIKE '%' || :searchQuery || '%' COLLATE NOCASE)
+        ORDER BY
+          CASE WHEN :sortOrder = 'name' THEN title END COLLATE NOCASE ASC,
+          CASE WHEN :sortOrder = 'created' THEN createdAt END DESC,
+          CASE WHEN :sortOrder = 'modified' THEN updatedAt END DESC,
+          id ASC
+    """)
+    fun observeLibraryFolders(
+        folderId: String?,
+        searchQuery: String,
+        sortOrder: String,
+    ): LiveData<List<Folder>>
+
     @Query("SELECT * FROM folder WHERE id IS :folderId")
     suspend fun get(folderId: String): Folder?
 
@@ -85,6 +101,12 @@ class FolderRepository @Inject constructor(
     fun getAllInFolder(folderId: String? = null): LiveData<List<Folder>> {
         return db.getChildrenFolders(folderId)
     }
+
+    fun observeLibraryFolders(
+        folderId: String?,
+        searchQuery: String,
+        sortOrder: String,
+    ): LiveData<List<Folder>> = db.observeLibraryFolders(folderId, searchQuery, sortOrder)
 
     suspend fun getParent(folderId: String? = null): String? {
         if (folderId == null)

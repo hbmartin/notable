@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -47,7 +46,9 @@ data class LibraryUiState(
     val books: List<Notebook> = emptyList(),
     val singlePages: List<Page> = emptyList(),
     val searchQuery: String = "",
-    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated
+    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated,
+    val folderDisplayMode: AppSettings.LibraryFolderDisplayMode =
+        AppSettings.LibraryFolderDisplayMode.Grouped,
 )
 
 // Private data class for clean Flow combining
@@ -56,7 +57,15 @@ private data class LibraryDatabaseState(
     val books: List<Notebook> = emptyList(),
     val singlePages: List<Page> = emptyList(),
     val searchQuery: String = "",
-    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated
+    val sortOrder: AppSettings.LibrarySortOrder = AppSettings.LibrarySortOrder.RecentlyCreated,
+    val folderDisplayMode: AppSettings.LibraryFolderDisplayMode =
+        AppSettings.LibraryFolderDisplayMode.Grouped,
+)
+
+private data class LibraryQuery(
+    val folderId: String?,
+    val searchQuery: String,
+    val sortOrder: AppSettings.LibrarySortOrder,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -80,47 +89,55 @@ class LibraryViewModel @Inject constructor(
     private val _folderId = MutableStateFlow<String?>(null)
     private val _searchQuery = MutableStateFlow("")
     private val _sortOrder = MutableStateFlow(GlobalAppSettings.current.librarySortOrder)
+    private val _folderDisplayMode =
+        MutableStateFlow(GlobalAppSettings.current.libraryFolderDisplayMode)
     private val _isImporting = MutableStateFlow(false)
     private val _newlyCreatedBookId = MutableStateFlow<String?>(null)
     val newlyCreatedBookId: StateFlow<String?> = _newlyCreatedBookId
     private val _isLatestVersion = MutableStateFlow(true)
     private val _breadcrumbFolders = MutableStateFlow<List<Folder>>(emptyList())
 
-    // 1. Convert LiveData to Flow and switch automatically when folderId changes
-    private val _foldersFlow =
-        _folderId.flatMapLatest { id -> folderRepository.getAllInFolder(id).asFlow() }
-    private val _booksFlow =
-        _folderId.flatMapLatest { id -> bookRepository.getAllInFolder(id).asFlow() }
-    private val _singlePagesFlow =
-        _folderId.flatMapLatest { id -> pageRepository.getSinglePagesInFolder(id).asFlow() }
+    private val _query = combine(_folderId, _searchQuery, _sortOrder) { folderId, search, sort ->
+        LibraryQuery(folderId, search.trim(), sort)
+    }
+
+    // Room performs filtering and ordering before emitting, avoiding repeated full-list work in UI.
+    private val _foldersFlow = _query.flatMapLatest { query ->
+        folderRepository.observeLibraryFolders(
+            query.folderId,
+            query.searchQuery,
+            query.sortOrder.queryKey,
+        ).asFlow()
+    }
+    private val _booksFlow = _query.flatMapLatest { query ->
+        bookRepository.observeLibraryNotebooks(
+            query.folderId,
+            query.searchQuery,
+            query.sortOrder.queryKey,
+        ).asFlow()
+    }
+    private val _singlePagesFlow = _query.flatMapLatest { query ->
+        pageRepository.observeLibraryQuickPages(query.folderId, query.sortOrder.queryKey).asFlow()
+    }
+
+    private val _libraryPreferences = combine(
+        _searchQuery,
+        _sortOrder,
+        _folderDisplayMode,
+    ) { search, sort, display -> Triple(search, sort, display) }
 
     // 2. Group the 3 database flows semantically, then apply search + sort
     private val _dbDataFlow = combine(
-        _foldersFlow, _booksFlow, _singlePagesFlow, _searchQuery, _sortOrder
-    ) { folders, books, pages, query, sort ->
+        _foldersFlow, _booksFlow, _singlePagesFlow, _libraryPreferences
+    ) { folders, books, pages, preferences ->
         LibraryDatabaseState(
-            folders = filterByTitle(folders, query) { it.title },
-            books = sortBooks(filterByTitle(books, query) { it.title }, sort),
+            folders = folders,
+            books = books,
             singlePages = pages,
-            searchQuery = query,
-            sortOrder = sort
+            searchQuery = preferences.first,
+            sortOrder = preferences.second,
+            folderDisplayMode = preferences.third,
         )
-    }.flowOn(Dispatchers.Default)
-
-    private inline fun <T> filterByTitle(
-        items: List<T>, query: String, crossinline title: (T) -> String
-    ): List<T> {
-        if (query.isBlank()) return items
-        return items.filter { title(it).contains(query.trim(), ignoreCase = true) }
-    }
-
-    private fun sortBooks(
-        books: List<Notebook>, sort: AppSettings.LibrarySortOrder
-    ): List<Notebook> = when (sort) {
-        AppSettings.LibrarySortOrder.RecentlyCreated -> books.sortedByDescending { it.createdAt }
-        AppSettings.LibrarySortOrder.RecentlyModified -> books.sortedByDescending { it.updatedAt }
-        AppSettings.LibrarySortOrder.Name ->
-            books.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
     }
 
     // 3. Expose the final UI State
@@ -136,7 +153,8 @@ class LibraryViewModel @Inject constructor(
             books = dbData.books,
             singlePages = dbData.singlePages,
             searchQuery = dbData.searchQuery,
-            sortOrder = dbData.sortOrder
+            sortOrder = dbData.sortOrder,
+            folderDisplayMode = dbData.folderDisplayMode,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -164,9 +182,21 @@ class LibraryViewModel @Inject constructor(
 
     fun setSortOrder(order: AppSettings.LibrarySortOrder) {
         _sortOrder.value = order
+        persistLibraryPreferences()
+    }
+
+    fun setFolderDisplayMode(mode: AppSettings.LibraryFolderDisplayMode) {
+        _folderDisplayMode.value = mode
+        persistLibraryPreferences()
+    }
+
+    private fun persistLibraryPreferences() {
         viewModelScope.launch(Dispatchers.IO) {
             appRepository.kvProxy.setAppSettings(
-                GlobalAppSettings.current.copy(librarySortOrder = order)
+                GlobalAppSettings.current.copy(
+                    librarySortOrder = _sortOrder.value,
+                    libraryFolderDisplayMode = _folderDisplayMode.value,
+                )
             )
         }
     }

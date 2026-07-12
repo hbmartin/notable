@@ -27,7 +27,6 @@ import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.utils.ensureNotMainThread
 import com.onyx.android.sdk.api.device.epd.EpdController
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.shipbook.shipbooksdk.Log
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -109,20 +108,17 @@ class XoppFile @Inject constructor(
 
     suspend fun writeToXoppStream(target: ExportTarget, output: OutputStream) =
         withContext(Dispatchers.IO) {
+            AtomicFileStore.recoverStaleFiles(context.cacheDir)
             val tmp = File(
                 context.cacheDir, when (target) {
-                    is ExportTarget.Book -> "notable_xopp_book.xml"
-                    is ExportTarget.Page -> "notable_xopp_page.xml"
+                    is ExportTarget.Book -> ".notable_xopp_book.xml.notable-tmp-${UUID.randomUUID()}"
+                    is ExportTarget.Page -> ".notable_xopp_page.xml.notable-tmp-${UUID.randomUUID()}"
                 }
             )
 
             try {
-                BufferedWriter(
-                    OutputStreamWriter(
-                        FileOutputStream(tmp),
-                        Charsets.UTF_8
-                    )
-                ).use { writer ->
+                FileOutputStream(tmp).use { fileOutput ->
+                    val writer = BufferedWriter(OutputStreamWriter(fileOutput, Charsets.UTF_8))
                     writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
                     writer.write("<xournal creator=\"Notable ${BuildConfig.VERSION_NAME}\" version=\"0.4\">\n")
                     when (target) {
@@ -139,6 +135,8 @@ class XoppFile @Inject constructor(
                         }
                     }
                     writer.write("</xournal>\n")
+                    writer.flush()
+                    fileOutput.fd.sync()
                 }
 
                 GzipCompressorOutputStream(BufferedOutputStream(output)).use { gz ->
@@ -355,7 +353,7 @@ class XoppFile @Inject constructor(
         onPageCreated: suspend (Page) -> Unit,
         onStrokeBatch: suspend (List<Stroke>) -> Unit,
         onPageFinalized: suspend (pageId: String, images: List<Image>) -> Unit,
-    ) = withContext(Dispatchers.IO) {
+    ): Int = withContext(Dispatchers.IO) {
         log.v("Importing book from $uri")
         ensureNotMainThread("xoppImportBook")
 
@@ -384,6 +382,7 @@ class XoppFile @Inject constructor(
                         eventType = parser.next()
                     }
                     log.i("Successfully imported book with $pageCount pages.")
+                    pageCount
                 }
             }
         } catch (e: Exception) {
@@ -667,7 +666,7 @@ class XoppFile @Inject constructor(
         val outputFile = File(outputDir, fileName)
 
         try {
-            FileOutputStream(outputFile).use { fos ->
+            AtomicFileStore.write(outputFile) { fos ->
                 val base64In = Base64.getMimeDecoder().wrap(XmlTextInputStream(parser, "image"))
                 base64In.use { it.copyTo(fos) }
             }
@@ -816,15 +815,5 @@ class XoppFile @Inject constructor(
 
     companion object {
         private const val DEFAULT_IMAGE_CHUNK_SIZE = 16 * 1024
-
-        fun isXoppFile(mimeType: String?, fileName: String?): Boolean {
-            val isXoppFile = mimeType in listOf(
-                "application/x-xopp",
-                "application/gzip",
-                "application/octet-stream"
-            ) || fileName?.endsWith(".xopp", ignoreCase = true) == true
-            Log.d("XoppFile", "isXoppFile($isXoppFile): $mimeType, $fileName")
-            return isXoppFile
-        }
     }
 }

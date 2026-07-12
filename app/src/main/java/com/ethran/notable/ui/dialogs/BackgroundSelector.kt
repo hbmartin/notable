@@ -85,7 +85,10 @@ import com.ethran.notable.editor.drawing.drawHexedBg
 import com.ethran.notable.editor.drawing.drawLinedBg
 import com.ethran.notable.editor.drawing.drawSquaredBg
 import com.ethran.notable.editor.utils.autoEInkAnimationOnScroll
+import com.ethran.notable.io.AtomicFileStore
+import com.ethran.notable.io.decodeImageDownsampled
 import com.ethran.notable.io.getPdfPageCount
+import com.ethran.notable.io.safeListFiles
 import com.ethran.notable.ui.LocalSnackContext
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.components.OnOffSwitch
@@ -95,7 +98,6 @@ import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
-import java.io.FileOutputStream
 
 private val log = ShipBook.getLogger("BackgroundSelector")
 
@@ -418,8 +420,10 @@ fun ShowNativeOption(
                     "hexed" -> drawHexedBg(canvas, Offset.Zero, 0.4f)
                 }
 
-                FileOutputStream(file).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                AtomicFileStore.write(file) { out ->
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                        throw java.io.IOException("Could not encode native background preview")
+                    }
                 }
 
                 bitmaps[key] = bitmap
@@ -521,9 +525,9 @@ fun ShowImageOption(
     val folderName = currentBackgroundType.folderName
     val folder = File(ensureBackgroundsFolder(), folderName)
 
-    val uriOptions = folder.listFiles()?.filter { it.isFile }?.map { file ->
+    val uriOptions = safeListFiles(folder).filter { it.isFile }.map { file ->
         Triple(file.absolutePath, file.nameWithoutExtension, null as Painter?)
-    } ?: emptyList()
+    }
 
     val chooseFileOption = listOf(Triple("file", "Choose From File...", null))
 
@@ -564,7 +568,7 @@ fun ShowImageOption(
                     )
                 } else if (value != "file") {
                     val bitmap = remember(value) {
-                        BitmapFactory.decodeFile(value)?.asImageBitmap()
+                        decodeImageDownsampled(File(value), 512)?.asImageBitmap()
                     }
 
                     if (bitmap != null) {
@@ -620,9 +624,9 @@ fun ShowPdfOption(
     val folderName = currentBackgroundType.folderName
     val folder = File(ensureBackgroundsFolder(), folderName)
 
-    val uriOptions = folder.listFiles()?.filter { it.isFile }?.map { file ->
+    val uriOptions = safeListFiles(folder).filter { it.isFile }.map { file ->
         Pair(file.absolutePath, file.nameWithoutExtension)
-    } ?: emptyList()
+    }
     val pdfOptions = listOf(
         "file" to "Import PDF"
     ) + uriOptions

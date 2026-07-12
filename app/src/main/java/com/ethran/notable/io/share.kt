@@ -11,9 +11,9 @@ import android.net.Uri
 import androidx.core.app.ShareCompat
 import androidx.core.content.FileProvider
 import androidx.core.graphics.createBitmap
+import com.ethran.notable.utils.launchIntentSafely
 import io.shipbook.shipbooksdk.ShipBook
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 
 private val log = ShipBook.getLogger("share")
@@ -26,14 +26,18 @@ fun shareBitmap(context: Context, bitmap: Bitmap) {
 
     val cachePath = File(context.cacheDir, "images")
     log.i(cachePath.toString())
-    cachePath.mkdirs()
+    AtomicFileStore.ensureDirectory(cachePath)
     try {
-        val stream = FileOutputStream(File(cachePath, "share.png"))
-        bmpWithBackground.compress(Bitmap.CompressFormat.PNG, 100, stream)
-        stream.close()
+        AtomicFileStore.write(File(cachePath, "share.png")) { stream ->
+            if (!bmpWithBackground.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                throw IOException("Bitmap encoder rejected shared image")
+            }
+        }
     } catch (e: IOException) {
         log.e("Failed to save shared image: ${e.message}", e)
         return
+    } finally {
+        bmpWithBackground.recycle()
     }
 
     val bitmapFile = File(cachePath, "share.png")
@@ -52,7 +56,9 @@ fun shareBitmap(context: Context, bitmap: Bitmap) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-    context.startActivity(Intent.createChooser(shareIntent, "Choose an app"))
+    context.launchIntentSafely(shareIntent, chooserTitle = "Choose an app") { error ->
+        log.w("Unable to share image: $error")
+    }
 }
 
 
@@ -60,13 +66,6 @@ fun shareBitmap(context: Context, bitmap: Bitmap) {
 fun copyBitmapToClipboard(context: Context, bitmap: Bitmap) {
     // Save bitmap to cache and get a URI
     val uri = saveBitmapToCache(context, bitmap) ?: return
-
-    // Grant temporary permission to read the URI
-    context.grantUriPermission(
-        context.packageName,
-        uri,
-        Intent.FLAG_GRANT_READ_URI_PERMISSION
-    )
 
     // Create a ClipData holding the URI
     val clipData = ClipData.newUri(context.contentResolver, "Image", uri)
@@ -84,24 +83,26 @@ private fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri? {
 
     val cachePath = File(context.cacheDir, "images")
     log.i(cachePath.toString())
-    cachePath.mkdirs()
+    AtomicFileStore.ensureDirectory(cachePath)
     try {
-        val stream =
-            FileOutputStream("$cachePath/share.png")
-        bmpWithBackground.compress(
-            Bitmap.CompressFormat.PNG,
-            100,
-            stream
-        )
-        stream.close()
+        AtomicFileStore.write(File(cachePath, "clipboard.png")) { stream ->
+            if (!bmpWithBackground.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                throw IOException("Bitmap encoder rejected clipboard image")
+            }
+        }
     } catch (e: IOException) {
         log.e("Failed to save PDF preview image: ${e.message}", e)
+        return null
+    } finally {
+        bmpWithBackground.recycle()
     }
 
-    val bitmapFile = File(cachePath, "share.png")
-    return FileProvider.getUriForFile(
-        context,
-        "com.ethran.notable.provider", //(use your app signature + ".provider" )
-        bitmapFile
-    )
+    val bitmapFile = File(cachePath, "clipboard.png")
+    return runCatching {
+        FileProvider.getUriForFile(
+            context,
+            "com.ethran.notable.provider",
+            bitmapFile
+        )
+    }.onFailure { log.e("Failed to expose clipboard image: ${it.message}", it) }.getOrNull()
 }

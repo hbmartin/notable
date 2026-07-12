@@ -16,6 +16,8 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import com.ethran.notable.R
 import com.ethran.notable.data.ensurePreviewsFullFolder
+import com.ethran.notable.io.AtomicFileStore
+import com.ethran.notable.io.safeListFiles
 import com.ethran.notable.utils.ensureNotMainThread
 import com.ethran.notable.utils.logCallStack
 import io.shipbook.shipbooksdk.ShipBook
@@ -128,7 +130,7 @@ val webpLosslessFormat get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.
  *   Remove other variants for this page (legacy + other scrollY encodings)
  */
 private fun removeOldBitmaps(dir: File, latestPreview: String, pageID: String) {
-    dir.listFiles()?.forEach { f ->
+    safeListFiles(dir).forEach { f ->
         if (f.name != latestPreview && f.name.startsWith(pageID)) {
             try {
                 if (f.delete()) {
@@ -154,29 +156,19 @@ fun saveHQPagePreview(
     val fileName = buildPreviewFileName(pageID, scrollYInt)
     val dir = ensurePreviewsFullFolder(context)
     val finalFile = File(dir, fileName)
-    val tempFile = File(dir, "$fileName.tmp")
 
     val optimized = optimizeBitmapForStorage(bitmap, mode, isThumbnail = false)
 
     try {
-        tempFile.outputStream().buffered().use { os ->
+        AtomicFileStore.write(finalFile) { os ->
             val success = optimized.bitmap.compress(optimized.format, optimized.quality, os)
             if (!success) {
-                log.e("saveHQPagePreview: Failed to compress bitmap")
-                tempFile.delete()
-                return@use
+                throw java.io.IOException("Failed to compress preview bitmap")
             }
         }
-        if (tempFile.exists() && tempFile.length() > 0) {
-            tempFile.renameTo(finalFile)
-            log.d("saveHQPagePreview: cached preview saved as $fileName (scrollY=$scrollYInt)")
-            removeOldBitmaps(dir, fileName, pageID)
-        } else {
-            log.e("saveHQPagePreview: temp file missing or empty, aborting rename")
-            tempFile.delete()
-        }
+        log.d("saveHQPagePreview: cached preview saved as $fileName (scrollY=$scrollYInt)")
+        removeOldBitmaps(dir, fileName, pageID)
     } catch (e: Exception) {
-        tempFile.delete()
         log.e("saveHQPagePreview: Exception while saving preview: ${e.message}")
         logCallStack("saveHQPagePreview")
     } finally {
@@ -195,6 +187,8 @@ fun loadHQPagePreview(
     requireExactMatch: Boolean,
 ): Bitmap? {
     val dir = ensurePreviewsFullFolder(context)
+    runCatching { AtomicFileStore.recoverStaleFiles(dir) }
+        .onFailure { log.w("Could not recover stale preview files: ${it.message}") }
 
     if (requireExactMatch) {
         if (!checkZoomAndScroll(scroll, zoom)) return null
@@ -348,31 +342,21 @@ fun savePageThumbnail(
 ) {
     ensureNotMainThread("savePageThumbnail")
     val finalFile = getThumbnailFile(context, pageID)
-    finalFile.parentFile?.mkdirs()
-    val tempFile = File(finalFile.parentFile, "${finalFile.name}.tmp")
+    finalFile.parentFile?.let(AtomicFileStore::ensureDirectory)
 
     val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
     val scaledBitmap = bitmap.scale(THUMBNAIL_WIDTH, (THUMBNAIL_WIDTH * ratio).toInt(), false)
     val optimized = optimizeBitmapForStorage(scaledBitmap, mode, isThumbnail = true)
 
     try {
-        tempFile.outputStream().buffered().use { os ->
+        AtomicFileStore.write(finalFile) { os ->
             val success = optimized.bitmap.compress(optimized.format, optimized.quality, os)
             if (!success) {
-                log.e("savePageThumbnail: Failed to compress bitmap")
-                tempFile.delete()
-                return
+                throw java.io.IOException("Failed to compress thumbnail bitmap")
             }
         }
-        if (tempFile.exists() && tempFile.length() > 0) {
-            tempFile.renameTo(finalFile)
-            log.d("savePageThumbnail: thumbnail saved for $pageID")
-        } else {
-            log.e("savePageThumbnail: temp file missing or empty, aborting rename")
-            tempFile.delete()
-        }
+        log.d("savePageThumbnail: thumbnail saved for $pageID")
     } catch (e: Exception) {
-        tempFile.delete()
         log.e("savePageThumbnail: Exception while saving thumbnail: ${e.message}")
         logCallStack("savePageThumbnail")
     } finally {

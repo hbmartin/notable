@@ -1,7 +1,10 @@
 package com.ethran.notable.editor.state
 
+import android.content.ClipboardManager
+import android.content.Context
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Stroke
+import com.ethran.notable.io.safeListFiles
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,5 +29,20 @@ object ClipboardStore {
     }
 
     fun get(): ClipboardContent? = _content.value
-}
 
+    /** Clear editor objects, the Android clipboard, and cached clipboard/share images. */
+    fun clear(context: Context): Boolean {
+        _content.value = null
+        var complete = true
+        runCatching {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.clearPrimaryClip()
+        }.onFailure { complete = false }
+
+        val imageCache = java.io.File(context.cacheDir, "images")
+        safeListFiles(imageCache).forEach { file ->
+            if (!file.delete() && file.exists()) complete = false
+        }
+        return complete
+    }
+}

@@ -1,5 +1,6 @@
 package com.ethran.notable.sync
 
+import com.ethran.notable.io.AtomicFileStore
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
 import com.ethran.notable.utils.fold
@@ -13,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
@@ -230,7 +232,22 @@ class WebDAVClient(
         ifMatch: String? = null
     ): AppResult<Unit, DomainError> {
         if (!localFile.exists()) return AppResult.Error(DomainError.SyncError("Local file missing"))
-        return putFile(path, localFile.readBytes(), contentType, ifMatch)
+        return try {
+            val requestBuilder = Request.Builder().url(buildUrl(path))
+                .put(localFile.asRequestBody(contentType.toMediaType()))
+                .header("Authorization", credentials)
+            ifMatch?.let { requestBuilder.header("If-Match", it) }
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                when {
+                    response.code == HttpURLConnection.HTTP_PRECON_FAILED ->
+                        AppResult.Error(DomainError.SyncConflict)
+                    response.isSuccessful -> AppResult.Success(Unit)
+                    else -> AppResult.Error(DomainError.SyncError("PUT failed: ${response.code}"))
+                }
+            }
+        } catch (e: Exception) {
+            AppResult.Error(DomainError.NetworkError(e.message ?: "PUT failed"))
+        }
     }
 
     fun getFile(path: String): AppResult<ByteArray, DomainError> {
@@ -246,9 +263,22 @@ class WebDAVClient(
             client.newCall(request).execute().use { response ->
                 when {
                     response.isSuccessful -> {
+                        val body = response.body
+                        val declaredLength = body.contentLength()
+                        if (declaredLength > MAX_METADATA_BYTES) {
+                            return@use AppResult.Error(
+                                DomainError.SyncError("Downloaded metadata exceeds the safety limit")
+                            )
+                        }
+                        val bytes = body.bytes()
+                        if (bytes.size > MAX_METADATA_BYTES) {
+                            return@use AppResult.Error(
+                                DomainError.SyncError("Downloaded metadata exceeds the safety limit")
+                            )
+                        }
                         AppResult.Success(
                             DownloadedFile(
-                                response.body.bytes(), response.header("ETag")
+                                bytes, response.header("ETag")
                             )
                         )
                     }
@@ -266,10 +296,45 @@ class WebDAVClient(
     }
 
     fun getFile(path: String, localFile: File): AppResult<Unit, DomainError> {
-        return getFile(path).onSuccess { content ->
-            localFile.parentFile?.mkdirs()
-            localFile.writeBytes(content)
-        }.map { }
+        return try {
+            val request = Request.Builder().url(buildUrl(path)).get()
+                .header("Authorization", credentials).build()
+            client.newCall(request).execute().use { response ->
+                when {
+                    response.code == HttpURLConnection.HTTP_NOT_FOUND ->
+                        AppResult.Error(DomainError.NotFound(path))
+                    !response.isSuccessful ->
+                        AppResult.Error(DomainError.SyncError("GET failed: ${response.code}"))
+                    else -> {
+                        val body = response.body
+                        val declaredLength = body.contentLength()
+                        if (declaredLength > MAX_SYNC_FILE_BYTES) {
+                            return@use AppResult.Error(
+                                DomainError.SyncError("Downloaded file exceeds the safety limit")
+                            )
+                        }
+                        AtomicFileStore.write(localFile) { output ->
+                            body.byteStream().use { input ->
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                var total = 0L
+                                while (true) {
+                                    val read = input.read(buffer)
+                                    if (read < 0) break
+                                    total += read
+                                    if (total > MAX_SYNC_FILE_BYTES) {
+                                        throw IOException("Downloaded file exceeds the safety limit")
+                                    }
+                                    output.write(buffer, 0, read)
+                                }
+                            }
+                        }
+                        AppResult.Success(Unit)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            AppResult.Error(DomainError.NetworkError(e.message ?: "GET failed"))
+        }
     }
 
     /**
@@ -483,6 +548,8 @@ class WebDAVClient(
         name.length == 36 && name[8] == '-' && name[13] == '-' && name[18] == '-' && name[23] == '-'
 
     companion object {
+        private const val MAX_METADATA_BYTES = 32 * 1024 * 1024
+        private const val MAX_SYNC_FILE_BYTES = 256L * 1024 * 1024
         private const val TAG = "WebDAVClient"
 
         // Timeout constants

@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ethran.notable.navigation.NavigationDestination
 import com.ethran.notable.ui.viewmodels.BugReportUiState
 import com.ethran.notable.ui.viewmodels.BugReportViewModel
+import com.ethran.notable.utils.launchIntentSafely
 import com.onyx.android.sdk.utils.ClipboardUtils.copyToClipboard
 import java.net.URLEncoder
 
@@ -70,7 +71,9 @@ fun BugReportScreen(
                     "title=${URLEncoder.encode("Bug: $title", "UTF-8")}" +
                     "&body=${URLEncoder.encode(body, "UTF-8")}"
 
-            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+            context.launchIntentSafely(Intent(Intent.ACTION_VIEW, url.toUri())) { message ->
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to submit report", Toast.LENGTH_LONG).show()
         }

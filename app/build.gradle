@@ -158,6 +158,8 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
+    detektPlugins libs.detekt.hbmartin
+
     implementation platform(libs.androidx.compose.bom)
     androidTestImplementation platform(libs.androidx.compose.bom)
 

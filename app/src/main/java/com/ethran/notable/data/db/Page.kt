@@ -75,6 +75,19 @@ interface PageDao {
     @Query("SELECT * FROM page WHERE notebookId is null AND parentFolderId is :folderId")
     fun getSinglePagesInFolder(folderId: String? = null): LiveData<List<Page>>
 
+    @Query("""
+        SELECT * FROM page
+        WHERE notebookId IS NULL AND parentFolderId IS :folderId
+        ORDER BY
+          CASE WHEN :sortOrder = 'modified' THEN updatedAt END DESC,
+          CASE WHEN :sortOrder IN ('created', 'name') THEN createdAt END DESC,
+          id ASC
+    """)
+    fun observeLibraryQuickPages(
+        folderId: String?,
+        sortOrder: String,
+    ): LiveData<List<Page>>
+
     @Insert
     suspend fun create(page: Page): Long
 
@@ -125,6 +138,9 @@ class PageRepository @Inject constructor(
     fun getSinglePagesInFolder(folderId: String? = null): LiveData<List<Page>> {
         return db.getSinglePagesInFolder(folderId)
     }
+
+    fun observeLibraryQuickPages(folderId: String?, sortOrder: String): LiveData<List<Page>> =
+        db.observeLibraryQuickPages(folderId, sortOrder)
 
     suspend fun update(page: Page) {
         return db.update(page)

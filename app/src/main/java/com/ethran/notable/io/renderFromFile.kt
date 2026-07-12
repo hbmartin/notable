@@ -95,7 +95,7 @@ fun loadBackgroundBitmap(filePath: String, pageNumber: Int, scale: Float): Bitma
  * so a camera-sized photo is not decoded at full resolution just to be drawn
  * as a page background.
  */
-private fun decodeImageDownsampled(file: File, targetWidth: Int): Bitmap? {
+fun decodeImageDownsampled(file: File, targetWidth: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.absolutePath, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null

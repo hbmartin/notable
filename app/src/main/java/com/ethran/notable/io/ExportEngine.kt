@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Environment
+import android.provider.DocumentsContract
 import androidx.compose.ui.geometry.Offset
 import androidx.core.net.toUri
 import com.ethran.notable.SCREEN_WIDTH
@@ -36,6 +37,7 @@ import java.io.IOException
 import java.io.OutputStream
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -504,25 +506,34 @@ class ExportEngine @Inject constructor(
         writer: suspend (OutputStream) -> Unit
     ): String = withContext(ioDispatcher) {
         val displayName = if (extension.isBlank()) fileName else "$fileName.$extension"
+        var prepared: File? = null
         try {
-            val dest = createOrGetFileInDir(folderUri, displayName, mimeType, overwrite)
-                ?: throw IOException(
-                    "Unable to create or access destination file in target directory, $folderUri, file: $displayName"
-                )
-
-            when (dest.scheme) {
+            prepared = prepareExportFile(displayName, writer)
+            when (folderUri.scheme) {
                 ContentResolver.SCHEME_CONTENT -> {
-                    val resolver = context.contentResolver
-                    resolver.openOutputStream(dest, "w")?.use { out -> writer(out) }
-                        ?: throw IOException("Failed to open output stream for $displayName")
+                    writeSafExportAtomically(folderUri, displayName, mimeType, overwrite, prepared)
                 }
 
                 "file" -> {
-                    val file = File(requireNotNull(dest.path) { "Missing file path" })
-                    FileOutputStream(file, false).use { out -> writer(out) }
+                    val parent = File(requireNotNull(folderUri.path) { "Missing directory path" })
+                    AtomicFileStore.ensureDirectory(parent)
+                    AtomicFileStore.recoverStaleFiles(parent)
+                    val requested = File(parent, displayName)
+                    val target = if (!overwrite && requested.exists()) {
+                        uniqueSibling(parent, displayName)
+                    } else requested
+                    val temp = File(parent, ".${target.name}.notable-tmp-${UUID.randomUUID()}")
+                    prepared.inputStream().use { input ->
+                        FileOutputStream(temp).use { output ->
+                            input.copyTo(output)
+                            output.flush()
+                            output.fd.sync()
+                        }
+                    }
+                    AtomicFileStore.commitPrepared(temp, target)
                 }
 
-                else -> throw IOException("Unsupported Uri scheme: ${dest.scheme}")
+                else -> throw IOException("Unsupported Uri scheme: ${folderUri.scheme}")
             }
 
             "Saved $displayName"
@@ -532,7 +543,183 @@ class ExportEngine @Inject constructor(
         } catch (e: Exception) {
             log.e("Save error: ${e.message}")
             "Error saving $displayName"
+        } finally {
+            prepared?.let { file ->
+                if (file.exists() && !file.delete()) {
+                    log.w("Could not delete prepared export file: ${file.absolutePath}")
+                }
+            }
         }
+    }
+
+    private suspend fun prepareExportFile(
+        displayName: String,
+        writer: suspend (OutputStream) -> Unit,
+    ): File {
+        val directory = File(context.cacheDir, "prepared-exports")
+        AtomicFileStore.ensureDirectory(directory)
+        AtomicFileStore.recoverStaleFiles(directory)
+        val prepared = File(
+            directory,
+            ".${sanitizeFileName(displayName)}.notable-tmp-${UUID.randomUUID()}",
+        )
+        try {
+            FileOutputStream(prepared).use { output ->
+                writer(output)
+                output.flush()
+                output.fd.sync()
+            }
+            if (!prepared.isFile || prepared.length() == 0L) {
+                throw IOException("Export produced an empty file")
+            }
+            return prepared
+        } catch (e: Exception) {
+            if (prepared.exists()) prepared.delete()
+            throw e
+        }
+    }
+
+    private data class SafDirectory(
+        val parentUri: Uri,
+        val childrenUri: Uri,
+        val childUri: (String) -> Uri,
+    )
+
+    @Synchronized
+    private fun writeSafExportAtomically(
+        directoryUri: Uri,
+        requestedName: String,
+        mimeType: String,
+        overwrite: Boolean,
+        prepared: File,
+    ) {
+        val resolver = context.contentResolver
+        val directory = resolveSafDirectory(directoryUri)
+        recoverStaleSafDocuments(directory)
+        var children = listSafChildren(directory)
+        val finalName = if (!overwrite && requestedName in children) {
+            uniqueSafName(requestedName, children.keys)
+        } else requestedName
+        val temporaryName = ".$finalName.notable-tmp-${UUID.randomUUID()}"
+        val temporaryUri = DocumentsContract.createDocument(
+            resolver, directory.parentUri, mimeType, temporaryName
+        ) ?: throw IOException("The document provider could not create a temporary export")
+
+        var backupUri: Uri? = null
+        try {
+            resolver.openFileDescriptor(temporaryUri, "w")?.use { descriptor ->
+                FileOutputStream(descriptor.fileDescriptor).use { output ->
+                    prepared.inputStream().use { it.copyTo(output) }
+                    output.flush()
+                    output.fd.sync()
+                }
+            } ?: throw IOException("The document provider could not open the temporary export")
+
+            children = listSafChildren(directory)
+            children[finalName]?.takeIf { overwrite }?.let { existing ->
+                val backupName = "$finalName.notable-backup"
+                children[backupName]?.let { stale ->
+                    if (!DocumentsContract.deleteDocument(resolver, stale)) {
+                        throw IOException("Could not remove stale provider backup")
+                    }
+                }
+                backupUri = DocumentsContract.renameDocument(resolver, existing, backupName)
+                    ?: throw IOException("The document provider cannot stage the existing export")
+            }
+
+            DocumentsContract.renameDocument(resolver, temporaryUri, finalName)
+                ?: throw IOException("The document provider cannot commit the export")
+            backupUri?.let {
+                if (!DocumentsContract.deleteDocument(resolver, it)) {
+                    throw IOException("Could not remove the completed export backup")
+                }
+            }
+        } catch (e: Exception) {
+            runCatching { DocumentsContract.deleteDocument(resolver, temporaryUri) }
+            backupUri?.let { backup ->
+                if (finalName !in listSafChildren(directory)) {
+                    runCatching { DocumentsContract.renameDocument(resolver, backup, finalName) }
+                }
+            }
+            throw e
+        }
+    }
+
+    private fun resolveSafDirectory(uri: Uri): SafDirectory = when {
+        DocumentsContract.isTreeUri(uri) -> {
+            val id = DocumentsContract.getTreeDocumentId(uri)
+            SafDirectory(
+                DocumentsContract.buildDocumentUriUsingTree(uri, id),
+                DocumentsContract.buildChildDocumentsUriUsingTree(uri, id),
+                { DocumentsContract.buildDocumentUriUsingTree(uri, it) },
+            )
+        }
+        DocumentsContract.isDocumentUri(context, uri) -> {
+            val id = DocumentsContract.getDocumentId(uri)
+            SafDirectory(
+                uri,
+                DocumentsContract.buildChildDocumentsUriUsingTree(uri, id),
+                { DocumentsContract.buildDocumentUriUsingTree(uri, it) },
+            )
+        }
+        else -> throw IOException("Not a Storage Access Framework directory: $uri")
+    }
+
+    private fun listSafChildren(directory: SafDirectory): Map<String, Uri> {
+        val result = linkedMapOf<String, Uri>()
+        context.contentResolver.query(
+            directory.childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            ),
+            null, null, null,
+        )?.use { cursor ->
+            val idIndex = cursor.getColumnIndexOrThrow(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID
+            )
+            val nameIndex = cursor.getColumnIndexOrThrow(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME
+            )
+            while (cursor.moveToNext()) {
+                result[cursor.getString(nameIndex)] = directory.childUri(cursor.getString(idIndex))
+            }
+        } ?: throw IOException("The document provider did not list the export directory")
+        return result
+    }
+
+    private fun recoverStaleSafDocuments(directory: SafDirectory) {
+        val resolver = context.contentResolver
+        var children = listSafChildren(directory)
+        children.filterKeys { it.contains(".notable-tmp-") }.values.forEach { uri ->
+            if (!DocumentsContract.deleteDocument(resolver, uri)) {
+                throw IOException("Could not remove a stale provider temporary document")
+            }
+        }
+        children = listSafChildren(directory)
+        children.filterKeys { it.endsWith(".notable-backup") }.forEach { (name, backup) ->
+            val originalName = name.removeSuffix(".notable-backup")
+            if (originalName in children) {
+                if (!DocumentsContract.deleteDocument(resolver, backup)) {
+                    throw IOException("Could not remove a stale provider backup")
+                }
+            } else if (DocumentsContract.renameDocument(resolver, backup, originalName) == null) {
+                throw IOException("Could not restore a stale provider backup")
+            }
+        }
+    }
+
+    private fun uniqueSafName(displayName: String, existingNames: Set<String>): String {
+        val dot = displayName.lastIndexOf('.')
+        val base = if (dot > 0) displayName.substring(0, dot) else displayName
+        val extension = if (dot > 0) displayName.substring(dot) else ""
+        var counter = 1
+        var candidate = "$base ($counter)$extension"
+        while (candidate in existingNames) {
+            counter++
+            candidate = "$base ($counter)$extension"
+        }
+        return candidate
     }
 
 
@@ -599,132 +786,6 @@ class ExportEngine @Inject constructor(
         if (uri.scheme != "file") return false
         val path = uri.path ?: return false
         return File(path).isDirectory
-    }
-
-    /**
-     * Create or get a file inside a directory Uri.
-     * - For SAF directories: uses DocumentsContract and returns a content:// document Uri
-     * - For file directories: creates a java.io.File and returns file:// Uri
-     */
-    private fun createOrGetFileInDir(
-        dirUri: Uri, displayName: String, mimeType: String, overwrite: Boolean
-    ): Uri? {
-        return when {
-            // SAF tree/doc directory
-            android.provider.DocumentsContract.isTreeUri(dirUri) || android.provider.DocumentsContract.isDocumentUri(
-                context,
-                dirUri
-            ) -> {
-                createOrGetSafChild(dirUri, displayName, mimeType, overwrite)
-            }
-
-            // file:// directory
-            isFileDirectory(dirUri) -> {
-                val parent = File(requireNotNull(dirUri.path))
-                if (!parent.exists()) parent.mkdirs()
-                var target = File(parent, displayName)
-                if (target.exists()) {
-                    if (overwrite) {
-                        if (!target.delete()) {
-                            log.w("Failed to delete existing file for overwrite: ${target.absolutePath}")
-                        }
-                    } else {
-                        // The caller opens the returned Uri with a truncating stream,
-                        // so returning the existing file would overwrite it anyway.
-                        // Allocate a uniquely suffixed sibling instead.
-                        target = uniqueSibling(parent, displayName)
-                    }
-                }
-                try {
-                    if (target.parentFile?.exists() != true) target.parentFile?.mkdirs()
-                    if (!target.exists()) target.createNewFile()
-                    target.toUri()
-                } catch (e: Exception) {
-                    log.e("File create failed: ${e.message}")
-                    null
-                }
-            }
-
-            else -> null
-        }
-    }
-
-    private fun createOrGetSafChild(
-        dirUri: Uri, displayName: String, mimeType: String, overwrite: Boolean
-    ): Uri? {
-        val resolver = context.contentResolver
-
-        val parentDocUri: Uri
-        val childrenUri: Uri
-        val buildChildDocUri: (String) -> Uri
-
-        if (android.provider.DocumentsContract.isTreeUri(dirUri)) {
-            val treeDocId = android.provider.DocumentsContract.getTreeDocumentId(dirUri)
-            parentDocUri =
-                android.provider.DocumentsContract.buildDocumentUriUsingTree(dirUri, treeDocId)
-            childrenUri =
-                android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
-                    dirUri,
-                    treeDocId
-                )
-            buildChildDocUri = { docId ->
-                android.provider.DocumentsContract.buildDocumentUriUsingTree(dirUri, docId)
-            }
-        } else {
-            val docId = android.provider.DocumentsContract.getDocumentId(dirUri)
-            parentDocUri = dirUri
-            childrenUri =
-                android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, docId)
-            buildChildDocUri = { childDocId ->
-                android.provider.DocumentsContract.buildDocumentUriUsingTree(dirUri, childDocId)
-            }
-        }
-
-        var existingChildUri: Uri? = null
-        resolver.query(
-            childrenUri,
-            arrayOf(
-                android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
-            ),
-            null, null, null
-        )?.use { cursor ->
-            val idIdx =
-                cursor.getColumnIndexOrThrow(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val nameIdx =
-                cursor.getColumnIndexOrThrow(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            while (cursor.moveToNext()) {
-                val name = cursor.getString(nameIdx)
-                if (name == displayName) {
-                    val childDocId = cursor.getString(idIdx)
-                    existingChildUri = buildChildDocUri(childDocId)
-                    break
-                }
-            }
-        }
-
-        if (existingChildUri != null && overwrite) {
-            try {
-                android.provider.DocumentsContract.deleteDocument(resolver, existingChildUri)
-            } catch (e: Exception) {
-                log.w("Failed to delete existing document before overwrite: ${e.message}")
-            }
-        }
-        // When not overwriting, fall through to createDocument: SAF providers
-        // uniquify the display name themselves ("name (1).ext"), whereas returning
-        // the existing document would let the caller truncate it.
-
-        return try {
-            android.provider.DocumentsContract.createDocument(
-                resolver,
-                parentDocUri,
-                mimeType,
-                displayName
-            )
-        } catch (e: Exception) {
-            log.e("createDocument failed: ${e.message}")
-            null
-        }
     }
 
     private fun Bitmap.toBytes(format: Bitmap.CompressFormat, quality: Int = 100): ByteArray {

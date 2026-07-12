@@ -21,7 +21,6 @@ import com.onyx.android.sdk.utils.UriUtils.getDataColumn
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.delay
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.text.Normalizer
 import java.util.Locale
@@ -36,16 +35,14 @@ fun getLinkedFilesDir(): File {
     val documentsDir =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
     val dbDir = File(documentsDir, "/notable/Linked")
-    if (!dbDir.exists()) {
-        dbDir.mkdirs()
-    }
+    AtomicFileStore.ensureDirectory(dbDir)
     return dbDir
 }
 
 
 fun saveImageFromContentUri(context: Context, fileUri: Uri, outputDir: File): File {
     val fileName = getFileNameFromUri(context, fileUri)
-    val destFile = File(outputDir, fileName)
+    val destFile = uniqueDestination(outputDir, fileName)
 
 
     // Decide max allowed pixel dimensions
@@ -94,10 +91,11 @@ fun saveImageFromContentUri(context: Context, fileUri: Uri, outputDir: File): Fi
         }
 
         // Save resized bitmap to destFile
-        destFile.outputStream().use { out ->
+        AtomicFileStore.write(destFile) { out ->
             val quality = if (outputFormat == Bitmap.CompressFormat.PNG) 100 else 90
-            resizedBitmap.compress(outputFormat, quality, out)
-            out.flush()
+            if (!resizedBitmap.compress(outputFormat, quality, out)) {
+                throw java.io.IOException("Image encoder rejected ${destFile.name}")
+            }
         }
 
         // Recycle to free memory
@@ -125,15 +123,29 @@ fun isImageUri(context: Context, uri: Uri): Boolean {
 // https://stackoverflow.com/questions/71241337/copy-image-from-uri-in-another-folder-with-another-name-in-kotlin-android
 fun createFileFromContentUri(context: Context, fileUri: Uri, outputDir: File): File {
     val fileName = getFileNameFromUri(context, fileUri)
-    val outputFile = File(outputDir, fileName)
+    val outputFile = uniqueDestination(outputDir, fileName)
 
 
-    val iStream: InputStream = context.contentResolver.openInputStream(fileUri)!!
-
-    // Copy the input stream to the output file
-    copyStreamToFile(iStream, outputFile)
-    iStream.close()
+    val input = context.contentResolver.openInputStream(fileUri)
+        ?: throw java.io.IOException("Could not open $fileUri")
+    copyStreamToFile(input, outputFile)
     return outputFile
+}
+
+private fun uniqueDestination(directory: File, displayName: String): File {
+    AtomicFileStore.ensureDirectory(directory)
+    val requested = File(directory, displayName)
+    if (!requested.exists()) return requested
+    val dot = displayName.lastIndexOf('.')
+    val base = if (dot > 0) displayName.substring(0, dot) else displayName
+    val extension = if (dot > 0) displayName.substring(dot) else ""
+    var counter = 1
+    var candidate = File(directory, "$base ($counter)$extension")
+    while (candidate.exists()) {
+        counter++
+        candidate = File(directory, "$base ($counter)$extension")
+    }
+    return candidate
 }
 
 fun getFileNameFromUri(
@@ -206,14 +218,13 @@ fun sanitizeFileName(raw: String, maxLen: Int = 80): String {
 
 fun copyStreamToFile(inputStream: InputStream, outputFile: File) {
     inputStream.use { input ->
-        FileOutputStream(outputFile).use { output ->
+        AtomicFileStore.write(outputFile) { output ->
             val buffer = ByteArray(4 * 1024) // buffer size
             while (true) {
                 val byteCount = input.read(buffer)
                 if (byteCount < 0) break
                 output.write(buffer, 0, byteCount)
             }
-            output.flush()
         }
     }
 }
@@ -223,17 +234,7 @@ fun copyStreamToFile(inputStream: InputStream, outputFile: File) {
  * paths against image files (e.g. a PNG background) being handed to PdfRenderer.
  */
 fun isPdfFile(file: File): Boolean {
-    if (!file.isFile) return false
-    val magic = "%PDF-"
-    return try {
-        val header = ByteArray(magic.length)
-        file.inputStream().use { input ->
-            input.read(header) == header.size && String(header, Charsets.US_ASCII) == magic
-        }
-    } catch (e: Exception) {
-        fileUtilsLog.w("isPdfFile: could not read header of $file: ${e.message}")
-        false
-    }
+    return DocumentKindDetector.detectFile(file).kind == DocumentKind.PDF
 }
 
 fun getPdfPageCount(uri: String): Int {

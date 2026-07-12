@@ -30,6 +30,7 @@ import androidx.compose.material.Badge
 import androidx.compose.material.BadgedBox
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -60,6 +62,8 @@ import com.ethran.notable.editor.EditorDestination
 import com.ethran.notable.editor.ui.Topbar
 import com.ethran.notable.editor.utils.autoEInkAnimationOnScroll
 import com.ethran.notable.io.ExportEngine
+import com.ethran.notable.io.DocumentKind
+import com.ethran.notable.io.DocumentKindDetector
 import com.ethran.notable.navigation.NavigationDestination
 import com.ethran.notable.sync.SyncScheduler
 import com.ethran.notable.ui.LocalSnackContext
@@ -84,6 +88,9 @@ import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Upload
 import compose.icons.feathericons.X
 import io.shipbook.shipbooksdk.ShipBook
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 object LibraryDestination : NavigationDestination {
@@ -146,7 +153,8 @@ fun Library(
         onImportXopp = viewModel::onXoppFile,
         onPreviewMissing = viewModel::onPreviewRequested,
         onSearchQueryChange = viewModel::setSearchQuery,
-        onSortOrderChange = viewModel::setSortOrder
+        onSortOrderChange = viewModel::setSortOrder,
+        onFolderDisplayModeChange = viewModel::setFolderDisplayMode,
     )
 }
 
@@ -170,7 +178,8 @@ fun LibraryContent(
     onImportXopp: (Uri) -> Unit,
     onPreviewMissing: (String) -> Unit,
     onSearchQueryChange: (String) -> Unit = {},
-    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit = {}
+    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit = {},
+    onFolderDisplayModeChange: (AppSettings.LibraryFolderDisplayMode) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Topbar {
@@ -205,8 +214,10 @@ fun LibraryContent(
             LibrarySearchSortBar(
                 searchQuery = uiState.searchQuery,
                 sortOrder = uiState.sortOrder,
+                folderDisplayMode = uiState.folderDisplayMode,
                 onSearchQueryChange = onSearchQueryChange,
-                onSortOrderChange = onSortOrderChange
+                onSortOrderChange = onSortOrderChange,
+                onFolderDisplayModeChange = onFolderDisplayModeChange,
             )
 
             if (uiState.searchQuery.isNotBlank() && uiState.folders.isEmpty() && uiState.books.isEmpty()) {
@@ -216,14 +227,15 @@ fun LibraryContent(
 
             Spacer(Modifier.height(10.dp))
 
-            FolderList(
-                appRepository = appRepository,
-                folders = uiState.folders,
-                onNavigateToFolder = onNavigateToFolder,
-                onCreateNewFolder = onCreateNewFolder
-            )
-
-            Spacer(Modifier.height(10.dp))
+            if (uiState.folderDisplayMode == AppSettings.LibraryFolderDisplayMode.Grouped) {
+                FolderList(
+                    appRepository = appRepository,
+                    folders = uiState.folders,
+                    onNavigateToFolder = onNavigateToFolder,
+                    onCreateNewFolder = onCreateNewFolder
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             ShowPagesRow(
                 appRepository = appRepository,
                 pages = uiState.singlePages,
@@ -241,7 +253,11 @@ fun LibraryContent(
                 exportEngine = exportEngine,
                 syncScheduler = syncScheduler,
                 books = uiState.books,
+                folders = uiState.folders,
+                folderDisplayMode = uiState.folderDisplayMode,
                 isImporting = uiState.isImporting,
+                onNavigateToFolder = onNavigateToFolder,
+                onCreateNewFolder = onCreateNewFolder,
                 onNavigateToEditor = onNavigateToEditor,
                 onDeleteEmptyBook = onDeleteEmptyBook,
                 onCreateNewNotebook = onCreateNewNotebook,
@@ -259,8 +275,10 @@ fun LibraryContent(
 fun LibrarySearchSortBar(
     searchQuery: String,
     sortOrder: AppSettings.LibrarySortOrder,
+    folderDisplayMode: AppSettings.LibraryFolderDisplayMode,
     onSearchQueryChange: (String) -> Unit,
-    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit
+    onSortOrderChange: (AppSettings.LibrarySortOrder) -> Unit,
+    onFolderDisplayModeChange: (AppSettings.LibraryFolderDisplayMode) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Row(
@@ -333,6 +351,16 @@ fun LibrarySearchSortBar(
                         Text(text = sortOrderLabel(order))
                     }
                 }
+                Divider()
+                AppSettings.LibraryFolderDisplayMode.entries.forEach { mode ->
+                    DropdownMenuItem(onClick = {
+                        isSortMenuOpen = false
+                        onFolderDisplayModeChange(mode)
+                    }) {
+                        val prefix = if (mode == folderDisplayMode) "✓ " else ""
+                        Text(text = prefix + folderDisplayModeLabel(mode))
+                    }
+                }
             }
         }
     }
@@ -343,6 +371,14 @@ private fun sortOrderLabel(order: AppSettings.LibrarySortOrder): String = when (
     AppSettings.LibrarySortOrder.RecentlyCreated -> stringResource(R.string.home_sort_recently_created)
     AppSettings.LibrarySortOrder.RecentlyModified -> stringResource(R.string.home_sort_recently_modified)
     AppSettings.LibrarySortOrder.Name -> stringResource(R.string.home_sort_name)
+}
+
+@Composable
+private fun folderDisplayModeLabel(mode: AppSettings.LibraryFolderDisplayMode): String = when (mode) {
+    AppSettings.LibraryFolderDisplayMode.Grouped ->
+        stringResource(R.string.home_folders_grouped)
+    AppSettings.LibraryFolderDisplayMode.Inline ->
+        stringResource(R.string.home_folders_inline)
 }
 
 @Composable
@@ -410,7 +446,11 @@ fun NotebookGrid(
     exportEngine: ExportEngine,
     syncScheduler: SyncScheduler,
     books: List<Notebook>,
+    folders: List<Folder>,
+    folderDisplayMode: AppSettings.LibraryFolderDisplayMode,
     isImporting: Boolean,
+    onNavigateToFolder: (String) -> Unit,
+    onCreateNewFolder: () -> Unit,
     onNavigateToEditor: (String, String) -> Unit,
     onDeleteEmptyBook: (String) -> Unit,
     onCreateNewNotebook: () -> Unit,
@@ -418,7 +458,15 @@ fun NotebookGrid(
     onImportXopp: (Uri) -> Unit,
     onPreviewMissing: (String) -> Unit
 ) {
-    Text(text = stringResource(R.string.home_notebooks))
+    Text(
+        text = stringResource(
+            if (folderDisplayMode == AppSettings.LibraryFolderDisplayMode.Inline) {
+                R.string.home_folders_and_notebooks
+            } else {
+                R.string.home_notebooks
+            }
+        )
+    )
     Spacer(Modifier.height(10.dp))
     LazyVerticalGrid(
         columns = GridCells.Adaptive(100.dp),
@@ -432,6 +480,19 @@ fun NotebookGrid(
                 onImportPdf = onImportPdf,
                 onImportXopp = onImportXopp
             )
+        }
+
+        if (folderDisplayMode == AppSettings.LibraryFolderDisplayMode.Inline) {
+            item(key = "add-folder") {
+                InlineAddFolderCard(onCreateNewFolder)
+            }
+            items(folders, key = { "folder-${it.id}" }) { folder ->
+                InlineFolderCard(
+                    appRepository = appRepository,
+                    folder = folder,
+                    onOpen = { onNavigateToFolder(folder.id) },
+                )
+            }
         }
 
         if (books.isNotEmpty()) {
@@ -469,6 +530,64 @@ fun NotebookGrid(
 }
 
 @Composable
+private fun InlineAddFolderCard(onCreateNewFolder: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(3f / 4f)
+            .border(1.dp, Color.Gray, RectangleShape)
+            .noRippleClickable(onClick = onCreateNewFolder),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = FeatherIcons.FolderPlus,
+                contentDescription = stringResource(R.string.home_add_new_folder),
+                modifier = Modifier.size(36.dp),
+            )
+            Text(stringResource(R.string.home_add_new_folder), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun InlineFolderCard(
+    appRepository: AppRepository,
+    folder: Folder,
+    onOpen: () -> Unit,
+) {
+    var settingsOpen by remember { mutableStateOf(false) }
+    if (settingsOpen) {
+        FolderConfigDialog(
+            appRepository,
+            folderId = folder.id,
+            onClose = { settingsOpen = false },
+        )
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(3f / 4f)
+            .border(1.dp, Color.Black, RectangleShape)
+            .combinedClickable(onClick = onOpen, onLongClick = { settingsOpen = true }),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = FeatherIcons.Folder,
+                contentDescription = stringResource(R.string.home_folder),
+                modifier = Modifier.size(42.dp),
+            )
+            Text(
+                folder.title,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2,
+            )
+        }
+    }
+}
+
+@Composable
 fun NotebookImportPanel(
     onCreateNewNotebook: () -> Unit,
     onImportPdf: (Uri, Boolean) -> Unit,
@@ -477,6 +596,7 @@ fun NotebookImportPanel(
 ) {
     val context = LocalContext.current
     val snackState = LocalSnackContext.current
+    val scope = rememberCoroutineScope()
     var showPdfImportChoiceDialog by remember { mutableStateOf<Uri?>(null) }
 
     showPdfImportChoiceDialog?.let { uri ->
@@ -522,20 +642,28 @@ fun NotebookImportPanel(
                     log.w("PickVisualMedia: uri is null (user cancelled or provider returned null)")
                     return@rememberLauncherForActivityResult
                 }
-                try {
-
-                    val mimeType = context.contentResolver.getType(uri)
-                    log.d("Selected file mimeType: $mimeType, uri: $uri")
-                    if (mimeType == "application/pdf" || uri.toString()
-                            .endsWith(".pdf", ignoreCase = true)
-                    ) {
-                        showPdfImportChoiceDialog = uri
-                    } else {
-                        onImportXopp(uri)
+                scope.launch {
+                    try {
+                        val classification = withContext(Dispatchers.IO) {
+                            DocumentKindDetector.detect(context, uri)
+                        }
+                        log.d("Selected file detected as ${classification.kind}, uri: $uri")
+                        when (classification.kind) {
+                            DocumentKind.PDF -> showPdfImportChoiceDialog = uri
+                            DocumentKind.XOPP -> onImportXopp(uri)
+                            DocumentKind.UNKNOWN -> snackState.showOrUpdateSnack(
+                                SnackConf(
+                                    text = classification.error
+                                        ?: "The selected document is not supported."
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        log.e("contentPicker failed: ${e.message}", e)
+                        snackState.showOrUpdateSnack(
+                            SnackConf(text = "Importing failed: ${e.message}")
+                        )
                     }
-                } catch (e: Exception) {
-                    log.e("contentPicker failed: ${e.message}", e)
-                    snackState.showOrUpdateSnack(SnackConf(text = "Importing failed: ${e.message}"))
                 }
             }
             // Import Notebook (Bottom Half)

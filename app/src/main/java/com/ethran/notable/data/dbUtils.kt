@@ -6,6 +6,7 @@ import android.os.Environment
 import com.ethran.notable.APP_SETTINGS_KEY
 import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.io.createFileFromContentUri
+import com.ethran.notable.io.AtomicFileStore
 import com.ethran.notable.io.isImageUri
 import com.ethran.notable.io.saveImageFromContentUri
 import kotlinx.coroutines.Dispatchers
@@ -39,26 +40,20 @@ fun getDbDir(): File {
 fun ensureImagesFolder(): File {
     val dbDir = getDbDir()
     val imagesDir = File(dbDir, "images")
-    if (!imagesDir.exists()) {
-        imagesDir.mkdirs()
-    }
+    AtomicFileStore.ensureDirectory(imagesDir)
     return imagesDir
 }
 
 fun ensureBackgroundsFolder(): File {
     val dbDir = getDbDir()
     val backgroundsDir = File(dbDir, "backgrounds")
-    if (!backgroundsDir.exists()) {
-        backgroundsDir.mkdirs()
-    }
+    AtomicFileStore.ensureDirectory(backgroundsDir)
     return backgroundsDir
 }
 
 fun ensurePreviewsFullFolder(context: Context): File {
     val dir = File(context.filesDir, "pages/previews/full")
-    if (!dir.exists()) {
-        dir.mkdirs()
-    }
+    AtomicFileStore.ensureDirectory(dir)
     return dir
 }
 
@@ -66,8 +61,7 @@ fun ensurePreviewsFullFolder(context: Context): File {
 fun copyBackgroundToDatabase(context: Context, fileUri: Uri, subfolder: String): File {
     var outputDir = ensureBackgroundsFolder()
     outputDir = File(outputDir, subfolder)
-    if (!outputDir.exists())
-        outputDir.mkdirs()
+    AtomicFileStore.ensureDirectory(outputDir)
     return if (isImageUri(context, fileUri))
     // make sure that image is not too large
         saveImageFromContentUri(context, fileUri, outputDir)
@@ -79,8 +73,7 @@ fun copyImageToDatabase(context: Context, fileUri: Uri, subfolder: String? = nul
     var outputDir = ensureImagesFolder()
     if (subfolder != null) {
         outputDir = File(outputDir, subfolder)
-        if (!outputDir.exists())
-            outputDir.mkdirs()
+        AtomicFileStore.ensureDirectory(outputDir)
     }
     return saveImageFromContentUri(context, fileUri, outputDir)
 }

@@ -83,7 +83,7 @@ fun ShowPagesRow(
         }
         // Render existing pages
         if (!pages.isNullOrEmpty()) {
-            items(pages.reversed()) { page ->
+            items(pages) { page ->
                 val pageId = page.id
                 var isPageSelected by remember { mutableStateOf(false) }
                 Box {
