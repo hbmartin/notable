@@ -75,7 +75,7 @@ object AtomicFileStore {
 
         val staleBefore = System.currentTimeMillis() - STALE_TEMP_AGE_MS
         safeListFiles(directory).filter {
-            (it.name.contains(TEMP_MARKER) || it.name.endsWith(".tmp")) &&
+            it.name.contains(TEMP_MARKER) &&
                     it.lastModified() <= staleBefore
         }.forEach { temp ->
             if (!temp.delete() && temp.exists()) {

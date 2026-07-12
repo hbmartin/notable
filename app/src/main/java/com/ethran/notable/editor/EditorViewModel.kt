@@ -245,14 +245,19 @@ class EditorViewModel @Inject constructor(
 
     fun createHistory(page: PageView): History = historyFactory.create(page)
 
+    fun applyActivePenPreferences() {
+        viewModelScope.launch(Dispatchers.IO) {
+            OnyxActivePenController.applyPreferences(GlobalAppSettings.current)
+        }
+    }
+
     fun refreshActivePenStatus() {
         viewModelScope.launch(Dispatchers.IO) {
             val settings = GlobalAppSettings.current
-            OnyxActivePenController.applyPreferences(settings)
             val battery = OnyxActivePenController.batteryLevel()
             _toolbarState.update { it.copy(activePenBattery = battery) }
             val shouldWarn = settings.activePenLowBatteryWarning &&
-                    battery?.let { it <= 15 } == true
+                    battery?.let { it <= settings.activePenLowBatteryThreshold } == true
             if (shouldWarn && didWarnAboutPenBattery.compareAndSet(false, true)) {
                 snackDispatcher.showOrUpdateSnack(
                     SnackConf(text = context.getString(R.string.active_pen_low_battery, battery))

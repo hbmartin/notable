@@ -76,6 +76,8 @@ object OnyxCapabilities {
 /** Keep identifiers useful for local diagnosis without exposing a complete hardware identifier. */
 fun redactDeviceIdentifier(value: String?): String? {
     if (value.isNullOrBlank()) return null
-    val visible = value.filterNot { it == ':' || it == '-' }.takeLast(4)
-    return if (visible.isBlank()) "redacted" else "••••$visible"
+    val significant = value.filterNot { it == ':' || it == '-' }
+    // A four-character suffix of a short identifier would reveal the whole value.
+    if (significant.length <= 4) return "redacted"
+    return "••••${significant.takeLast(4)}"
 }

@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FilterOutputStream
 import java.io.IOException
 import java.io.OutputStream
 import java.time.ZonedDateTime
@@ -58,6 +59,13 @@ data class ExportOptions(
     val overwrite: Boolean = false,
     val fileName: String? = null
 )
+
+/** Lets format writers finish their own wrappers without closing the file owned by the exporter. */
+internal class NonClosingOutputStream(output: OutputStream) : FilterOutputStream(output) {
+    override fun close() {
+        flush()
+    }
+}
 
 @Singleton
 class ExportEngine @Inject constructor(
@@ -565,7 +573,7 @@ class ExportEngine @Inject constructor(
         )
         try {
             FileOutputStream(prepared).use { output ->
-                writer(output)
+                writer(NonClosingOutputStream(output))
                 output.flush()
                 output.fd.sync()
             }
@@ -616,32 +624,109 @@ class ExportEngine @Inject constructor(
             } ?: throw IOException("The document provider could not open the temporary export")
 
             children = listSafChildren(directory)
-            children[finalName]?.takeIf { overwrite }?.let { existing ->
+            val existing = children[finalName]?.takeIf { overwrite }
+            val canRenameAtomically = supportsSafRename(temporaryUri) &&
+                    (existing == null || supportsSafRename(existing))
+            if (!canRenameAtomically) {
+                writeSafWithoutRename(directory, finalName, mimeType, prepared, existing)
+                deleteSafDocumentBestEffort(temporaryUri)
+                return
+            }
+
+            existing?.let {
                 val backupName = "$finalName.notable-backup"
                 children[backupName]?.let { stale ->
                     if (!DocumentsContract.deleteDocument(resolver, stale)) {
                         throw IOException("Could not remove stale provider backup")
                     }
                 }
-                backupUri = DocumentsContract.renameDocument(resolver, existing, backupName)
-                    ?: throw IOException("The document provider cannot stage the existing export")
+                backupUri = tryRenameSafDocument(it, backupName)
+                if (backupUri == null) {
+                    writeSafWithoutRename(directory, finalName, mimeType, prepared, it)
+                    deleteSafDocumentBestEffort(temporaryUri)
+                    return
+                }
             }
 
-            DocumentsContract.renameDocument(resolver, temporaryUri, finalName)
-                ?: throw IOException("The document provider cannot commit the export")
+            if (tryRenameSafDocument(temporaryUri, finalName) == null) {
+                // The provider advertised rename support but did not perform it. Preserve the
+                // staged backup until a direct final-name write has completed successfully.
+                writeSafWithoutRename(directory, finalName, mimeType, prepared, existing = null)
+                deleteSafDocumentBestEffort(temporaryUri)
+            }
             backupUri?.let {
                 if (!DocumentsContract.deleteDocument(resolver, it)) {
                     throw IOException("Could not remove the completed export backup")
                 }
+                backupUri = null
             }
         } catch (e: Exception) {
-            runCatching { DocumentsContract.deleteDocument(resolver, temporaryUri) }
+            deleteSafDocumentBestEffort(temporaryUri)
             backupUri?.let { backup ->
                 if (finalName !in listSafChildren(directory)) {
-                    runCatching { DocumentsContract.renameDocument(resolver, backup, finalName) }
+                    tryRenameSafDocument(backup, finalName)
                 }
             }
             throw e
+        }
+    }
+
+    private fun supportsSafRename(documentUri: Uri): Boolean = runCatching {
+        context.contentResolver.query(
+            documentUri,
+            arrayOf(DocumentsContract.Document.COLUMN_FLAGS),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use false
+            val flags = cursor.getLong(0)
+            flags and DocumentsContract.Document.FLAG_SUPPORTS_RENAME.toLong() != 0L
+        } ?: false
+    }.getOrDefault(false)
+
+    private fun tryRenameSafDocument(documentUri: Uri, displayName: String): Uri? =
+        runCatching {
+            DocumentsContract.renameDocument(context.contentResolver, documentUri, displayName)
+        }.onFailure {
+            log.w("The document provider could not rename $documentUri: ${it.message}")
+        }.getOrNull()
+
+    /** Compatibility path for providers that support create/write but not rename. */
+    private fun writeSafWithoutRename(
+        directory: SafDirectory,
+        displayName: String,
+        mimeType: String,
+        prepared: File,
+        existing: Uri?,
+    ) {
+        val resolver = context.contentResolver
+        val created = existing == null
+        val destination = existing ?: DocumentsContract.createDocument(
+            resolver,
+            directory.parentUri,
+            mimeType,
+            displayName,
+        ) ?: throw IOException("The document provider could not create the final export")
+
+        try {
+            resolver.openOutputStream(destination, "wt")?.use { output ->
+                prepared.inputStream().use { it.copyTo(output) }
+                output.flush()
+            } ?: throw IOException("The document provider could not write the final export")
+        } catch (e: Exception) {
+            if (created) deleteSafDocumentBestEffort(destination)
+            throw e
+        }
+    }
+
+    private fun deleteSafDocumentBestEffort(documentUri: Uri) {
+        runCatching {
+            if (!DocumentsContract.deleteDocument(context.contentResolver, documentUri)) {
+                log.w("The document provider did not delete temporary document $documentUri")
+            }
+        }.onFailure {
+            log.w("The document provider could not delete $documentUri: ${it.message}")
         }
     }
 

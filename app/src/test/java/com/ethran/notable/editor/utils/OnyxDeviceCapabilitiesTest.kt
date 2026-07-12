@@ -12,6 +12,12 @@ class OnyxDeviceCapabilitiesTest {
     }
 
     @Test
+    fun redactDeviceIdentifier_fullyMasksShortIdentifiers() {
+        assertEquals("redacted", redactDeviceIdentifier("abcd"))
+        assertEquals("redacted", redactDeviceIdentifier("a:b-c"))
+    }
+
+    @Test
     fun redactDeviceIdentifier_handlesMissingValues() {
         assertNull(redactDeviceIdentifier(null))
         assertNull(redactDeviceIdentifier(""))

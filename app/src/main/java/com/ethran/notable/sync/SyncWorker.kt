@@ -8,7 +8,6 @@ import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
 import dagger.hilt.android.EntryPointAccessors
 import io.shipbook.shipbooksdk.Log
-import java.net.URI
 
 /**
  * Background worker for WebDAV synchronization.
@@ -31,8 +30,8 @@ class SyncWorker(
         // 1. Dynamic Checks. Remote servers require Android's validated-internet signal;
         // local WebDAV servers are still allowed on a Wi-Fi LAN without internet access.
         val connectivityChecker = ConnectivityChecker(applicationContext)
-        val requireValidated = !isLikelyLocalServerUrl(syncSettings.serverUrl)
-        if (!connectivityChecker.isNetworkAvailable(requireValidated = requireValidated)) {
+        val connectivityStatus = connectivityChecker.currentStatus()
+        if (!isNetworkUsableForServer(connectivityStatus, syncSettings.serverUrl)) {
             Log.i(TAG, "No usable network available, will retry later")
             return Result.retry()
         }
@@ -42,7 +41,7 @@ class SyncWorker(
             return Result.success(workDataOf(OUTPUT_KEY_SKIPPED to true))
         }
 
-        if (syncSettings.wifiOnly && !connectivityChecker.isUnmeteredConnected()) {
+        if (syncSettings.wifiOnly && !connectivityStatus.unmetered) {
             Log.i(TAG, "WiFi-only sync enabled but not on unmetered network, skipping")
             return Result.success(workDataOf(OUTPUT_KEY_SKIPPED to true))
         }
@@ -163,15 +162,4 @@ class SyncWorker(
          */
         const val WORK_NAME = "notable-periodic-sync"
     }
-}
-
-internal fun isLikelyLocalServerUrl(rawUrl: String): Boolean {
-    val host = runCatching { URI(rawUrl).host?.lowercase() }.getOrNull() ?: return false
-    if (host == "localhost" || host.endsWith(".local")) return true
-    val octets = host.split('.').mapNotNull { it.toIntOrNull() }
-    if (octets.size != 4) return false
-    return octets[0] == 10 ||
-            (octets[0] == 172 && octets[1] in 16..31) ||
-            (octets[0] == 192 && octets[1] == 168) ||
-            (octets[0] == 127)
 }

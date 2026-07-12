@@ -156,6 +156,16 @@ private fun ActivePenSettings(
         value = settings.activePenLowBatteryWarning,
         onToggle = { onSettingsChange(settings.copy(activePenLowBatteryWarning = it)) },
     )
+    if (settings.activePenLowBatteryWarning) {
+        SelectorRow(
+            label = stringResource(R.string.active_pen_low_battery_threshold),
+            options = listOf(5, 10, 15, 20, 30).map {
+                it to stringResource(R.string.percent_value, it)
+            },
+            value = settings.activePenLowBatteryThreshold,
+            onValueChange = { onSettingsChange(settings.copy(activePenLowBatteryThreshold = it)) },
+        )
+    }
     SettingToggleRow(
         label = stringResource(R.string.active_pen_haptics),
         value = settings.activePenHaptics,
@@ -175,7 +185,9 @@ private fun ActivePenSettings(
     )
     SelectorRow(
         label = stringResource(R.string.active_pen_haptic_type),
-        options = listOf(0 to "Type 0", 1 to "Type 1", 2 to "Type 2"),
+        options = listOf(0, 1, 2).map {
+            it to stringResource(R.string.haptic_type_option, it)
+        },
         value = settings.activePenHapticType,
         onValueChange = { onSettingsChange(settings.copy(activePenHapticType = it)) },
     )

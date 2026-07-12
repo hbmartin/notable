@@ -15,10 +15,10 @@ fun selectFullRefreshMode(
     adaptive: Boolean,
 ): UpdateMode {
     if (!capabilities.supportsRegal) return UpdateMode.GC
-    if (!adaptive) return UpdateMode.REGAL_PLUS
+    if (!adaptive) return UpdateMode.GC
 
     val cleaningRefreshDue = partialRefreshCount >= 40 || fullRefreshCount % 6 == 0
-    return if (cleaningRefreshDue) UpdateMode.REGAL_PLUS else UpdateMode.REGAL
+    return if (cleaningRefreshDue) UpdateMode.GC else UpdateMode.REGAL
 }
 
 /** Coordinates EPD refreshes and temporary color adjustments owned by Notable. */
@@ -39,7 +39,7 @@ object OnyxDisplayController {
 
         val fullCount = fullRefreshes.incrementAndGet()
         val requested = if (forceClean) {
-            if (OnyxCapabilities.current.supportsRegal) UpdateMode.REGAL_PLUS else UpdateMode.GC
+            UpdateMode.GC
         } else {
             selectFullRefreshMode(
                 capabilities = OnyxCapabilities.current,
@@ -50,14 +50,18 @@ object OnyxDisplayController {
         }
 
         val fallbacks = when (requested) {
-            UpdateMode.REGAL_PLUS -> listOf(UpdateMode.REGAL_PLUS, UpdateMode.REGAL, UpdateMode.GC)
             UpdateMode.REGAL -> listOf(UpdateMode.REGAL, UpdateMode.GC)
             else -> listOf(requested, UpdateMode.GC)
         }.distinct()
 
+        // repaintEveryThing returns void, so unsupported modes that are silently ignored cannot
+        // be distinguished from success. Cleaning refreshes therefore request universally
+        // supported GC directly; only REGAL uses an exception-triggered fallback.
         for (mode in fallbacks) {
             if (runCatching { EpdController.repaintEveryThing(mode) }.isSuccess) {
-                partialRefreshes.set(0)
+                // Plain REGAL preserves ghosting, so only a cleaning waveform pays down
+                // the debt the partial-refresh counter is tracking.
+                if (mode != UpdateMode.REGAL) partialRefreshes.set(0)
                 log.d("Full refresh completed with $mode")
                 return
             }
@@ -72,6 +76,9 @@ object OnyxDisplayController {
         clearOwnedProfile()
         if (profile == AppSettings.DisplayProfile.System) return
 
+        // Take ownership before touching the device so a partially applied profile is
+        // still torn down by clearOwnedProfile when a later SDK call throws.
+        appliedProfile = profile
         runCatching {
             when (profile) {
                 AppSettings.DisplayProfile.System -> Unit
@@ -100,7 +107,6 @@ object OnyxDisplayController {
                     if (OnyxCapabilities.current.supportsNightMode) EpdController.enableNightMode()
                 }
             }
-            appliedProfile = profile
             fullRefresh(adaptive = false, forceClean = true)
         }.onFailure {
             log.w("Unable to apply display profile $profile: ${it.message}")
@@ -108,7 +114,10 @@ object OnyxDisplayController {
         }
     }
 
-    /** Remove only the modes Notable may have enabled; called when the editor leaves composition. */
+    /**
+     * Remove only the modes Notable may have enabled. Color adjust and night mode are
+     * device-global, so this runs whenever the editor leaves the foreground or composition.
+     */
     @Synchronized
     fun clearOwnedProfile() {
         if (!OnyxCapabilities.current.isOnyxDevice) return

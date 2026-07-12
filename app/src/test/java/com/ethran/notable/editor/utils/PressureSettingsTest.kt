@@ -20,6 +20,14 @@ class PressureSettingsTest {
     }
 
     @Test
+    fun remapPressure_lowerSensitivityRespondsLessToLightPressure() {
+        val linear = remapPressure(1024f, 4096f, 1f, 0f)
+        val firm = remapPressure(1024f, 4096f, 0.5f, 0f)
+
+        assertTrue(firm < linear)
+    }
+
+    @Test
     fun remapPressure_handlesUnknownMaximumWithoutChangingInput() {
         assertEquals(321f, remapPressure(321f, 0f, 2f, 0.2f), 0f)
     }

@@ -134,12 +134,12 @@ class DrawCanvas(
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 log.i("surface destroyed ${this@DrawCanvas.hashCode()}")
                 // Only the canvas whose input handler currently owns the raw-input
-                // surface may close the raw drawing session; a stale canvas being torn
-                // down after a newer one claimed the surface must leave it alone.
+                // surface may mutate device-global drawing state. A stale canvas being torn
+                // down after a newer one claimed the surface must leave the replacement alone.
                 if (inputHandler.ownsRawInputSurface()) {
                     inputHandler.touchHelper?.closeRawDrawing()
+                    onSurfaceDestroy(this@DrawCanvas, inputHandler.touchHelper)
                 }
-                onSurfaceDestroy(this@DrawCanvas, inputHandler.touchHelper)
                 // Drop the ownership claim so the companion reference doesn't retain
                 // this canvas after the editor closes; updateActiveSurface() re-claims
                 // it if the surface comes back.
