@@ -2,6 +2,7 @@
     <string name="app_name" translatable="false">Notable</string>
     <string name="home_quick_pages">Quick pages</string>
     <string name="home_notebooks">Notebooks</string>
+    <string name="home_folders_and_notebooks">Folders and notebooks</string>
     <string name="home_add_new_folder">Add new folder</string>
     <string name="home_search_hint">Search notebooks and folders…</string>
     <string name="home_clear_search">Clear search</string>
@@ -10,6 +11,9 @@
     <string name="home_sort_recently_modified">Recently modified</string>
     <string name="home_sort_name">Name</string>
     <string name="home_no_search_results">Nothing matches your search.</string>
+    <string name="home_folders_grouped">Folders in a separate row</string>
+    <string name="home_folders_inline">Folders in the notebook grid</string>
+    <string name="home_folder">Folder</string>
     <string name="home_new_folder">New Folder</string>
     <string name="home_view_name">Library</string>
     <string name="settings_title">Settings</string>
@@ -118,6 +122,9 @@
     <string name="exporting_the_book_to">Exporting the book to %1$s…</string>
     <string name="clean_all_strokes">Clean all strokes</string>
     <string name="cleared_all_strokes">Cleared all strokes</string>
+    <string name="clear_clipboard">Clear clipboard</string>
+    <string name="clipboard_cleared">Clipboard cleared</string>
+    <string name="clipboard_clear_incomplete">Clipboard cleared, but one or more cached files could not be removed</string>
     <string name="change_background">Change Background</string>
     <string name="bug_report">Bug Report</string>
     <string name="choose_pdf_background">Choose PDF background</string>

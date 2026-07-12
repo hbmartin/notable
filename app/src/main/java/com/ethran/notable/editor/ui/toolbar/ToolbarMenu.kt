@@ -122,6 +122,12 @@ private fun ToolbarMenuContent(
             onAction(ToolbarAction.ClearAllStrokes)
             onAction(ToolbarAction.ToggleMenu)
         }
+        if (uiState.hasClipboard) {
+            MenuItem(stringResource(R.string.clear_clipboard)) {
+                onAction(ToolbarAction.ClearClipboard)
+                onAction(ToolbarAction.ToggleMenu)
+            }
+        }
         DividerCentered()
 
         MenuItem(stringResource(R.string.change_background)) {

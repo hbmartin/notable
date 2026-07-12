@@ -12,6 +12,7 @@ import com.ethran.notable.BuildConfig
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.getDbDir
 import com.ethran.notable.editor.utils.OnyxCapabilities
+import com.ethran.notable.io.safeListFiles
 import com.onyx.android.sdk.device.Device
 import java.io.BufferedReader
 import java.io.File
@@ -264,9 +265,9 @@ class BugReportGenerator(
     private fun getFolderSize(dir: File): Long {
         if (!dir.exists()) return 0L
         if (dir.isFile) return dir.length()
-        return dir.listFiles()?.sumOf { file ->
+        return safeListFiles(dir).sumOf { file ->
             if (file.isDirectory) getFolderSize(file) else file.length()
-        } ?: 0L
+        }
     }
 
 

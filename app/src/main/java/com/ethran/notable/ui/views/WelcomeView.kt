@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ethran.notable.PACKAGE_NAME
 import com.ethran.notable.R
 import com.ethran.notable.editor.utils.getCurRefreshModeString
+import com.ethran.notable.utils.launchIntentSafely
 import com.ethran.notable.editor.utils.isRecommendedRefreshMode
 import com.ethran.notable.editor.utils.setRecommendedMode
 import com.ethran.notable.navigation.NavigationDestination
@@ -100,7 +102,9 @@ fun WelcomeView(
         val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
         intent.data = Uri.fromParts("package", PACKAGE_NAME, null)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        context.startActivity(intent)
+        context.launchIntentSafely(intent) { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
     }
 
     fun requestPermissions() {

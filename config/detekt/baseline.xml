@@ -2,6 +2,221 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>AvoidVarsExceptWithDelegate:AppResultTest.kt$AppResultTest$var seenError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:AppResultTest.kt$AppResultTest$var seenSuccess: Int? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:BackgroundSelector.kt$var isSelected = currentBackgroundType == BackgroundType.AutoPdf</ID>
+    <ID>AvoidVarsExceptWithDelegate:BreadCrumb.kt$var currentFolderId = page?.parentFolderId</ID>
+    <ID>AvoidVarsExceptWithDelegate:BreadCrumb.kt$var currentId = folderId</ID>
+    <ID>AvoidVarsExceptWithDelegate:BugReportGenerator.kt$BugReportGenerator$var bestLength = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:BugReportGenerator.kt$BugReportGenerator$var high = wholeLogsLength</ID>
+    <ID>AvoidVarsExceptWithDelegate:BugReportGenerator.kt$BugReportGenerator$var low = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:BugReportViewModel.kt$BugReportViewModel$private var generationJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasEventBus.kt$CanvasEventBus$// used for checking if commit was completed var commitCompletion = CompletableDeferred&lt;Unit&gt;()</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasObserverRegistry.kt$CanvasObserverRegistry$// Last (scroll, zoom) actually pushed by an immediate refresh. Used to drop redundant // refreshes — see observeRefreshUiImmediately. private var lastImmediateScroll: Offset? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasObserverRegistry.kt$CanvasObserverRegistry$private var lastImmediateZoom: Float = Float.NaN</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasObserverRegistry.kt$CanvasObserverRegistry$private var registered = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasObserverRegistry.kt$CanvasObserverRegistry.Companion$// The observer job of the currently active registry. A newly registering registry // cancels the previous one, guaranteeing exactly one live observer set even if an old // DrawCanvas instance leaked. private var activeObserverJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasRefreshManager.kt$CanvasRefreshManager$var canvas: Canvas? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:CanvasRefreshManager.kt$CanvasRefreshManager$var surfaceCanvas: Canvas? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:Clipboard.kt$ClipboardStore$var complete = true</ID>
+    <ID>AvoidVarsExceptWithDelegate:DocumentKindDetector.kt$DocumentKindDetector$var count = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:DocumentKindDetector.kt$DocumentKindDetector$var matches = true</ID>
+    <ID>AvoidVarsExceptWithDelegate:DrawCanvas.kt$DrawCanvas$var glRenderer = OpenGLRenderer(this)</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorControlTower.kt$EditorControlTower$private var changePageObserverJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorControlTower.kt$EditorControlTower$private var scrollConsumerJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorControlTower.kt$EditorControlTower$private var scrollInProgress = Mutex()</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorSeedingTests.kt$EditorSeedingTests$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorSettingCacheManager.kt$EditorSettingCacheManager$@Volatile private var isInitialized = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorSettingCacheManager.kt$EditorSettingCacheManager$private var editorSettings: EditorSettings? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorSimpleStateTests.kt$EditorSimpleStateTests$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorUnsupportedConcurrentChangeTests.kt$EditorUnsupportedConcurrentChangeTests$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:EditorViewModel.kt$EditorViewModel$// ---- Internal document context ---- private var bookId: String? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var notebookDao: NotebookDao</ID>
+    <ID>AvoidVarsExceptWithDelegate:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var pageDao: PageDao</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodePolyline.kt$var coordinate = coordinateChunk.mapIndexed { i, chunk -&gt; chunk shl (i * 5) }.reduce { i, j -&gt; i or j }</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodePolyline.kt$var prevValue = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodePolyline.kt$var prevValue = 0.0</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodePolyline.kt$var value = char.code - 63</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodePolyline.kt$var value = toEncode</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var callCount = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var savedCases = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var skippedCases = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var totalCompressed = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var totalRaw = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$@Inject lateinit var xoppFile : XoppFile</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var backupUri: Uri? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var candidate = "$base ($counter)$extension"</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var candidate = File(parent, "$base ($counter)$ext")</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var children = listSafChildren(directory)</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var counter = 1</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var currentTop = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var logicalPageNumber = pageNumber</ID>
+    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var prepared: File? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var candidate = File(directory, "$base ($counter)$extension")</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var count = 1</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var counter = 1</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var fileName: String? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var intervalMs: Long = 5</ID>
+    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var name = Normalizer.normalize(raw, Normalizer.Form.NFD) .replace(Regex("\\p{Mn}+"), "") // remove diacritics</ID>
+    <ID>AvoidVarsExceptWithDelegate:Folder.kt$FolderRepository$var current: String? = candidateId</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$private var lastCheckForMovementPosition: List&lt;Offset&gt;? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var count = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var gestureMode: GestureMode = GestureMode.Normal set(value) { if (field != value) { when (value) { GestureMode.Zoom, GestureMode.Scroll, GestureMode.Selection, GestureMode.Drag -&gt; { log.d("Entered ${value.name} gesture mode") setAnimationMode(true) } GestureMode.Normal -&gt; { // if there was a selection we might want to keep the animation mode // TODO: there should be better solution to this, but for now its enough. if (field != GestureMode.Selection) { log.d("Entered ${value.name} gesture mode") scope.launch(Dispatchers.Default) { // Just to reduce flicker awaitFrame() awaitFrame() // TODO: We should instead wait till full refresh is ready to be posted, // instead of hardcoding delay. setAnimationMode(false) } } } } field = value } }</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var minHorizontalMovement: Float? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var minVerticalMovement: Float? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var sumX = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:GestureState.kt$GestureState$var sumY = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:History.kt$History$private var redoList: OperationList = mutableListOf()</ID>
+    <ID>AvoidVarsExceptWithDelegate:History.kt$History$private var undoList: OperationList = mutableListOf()</ID>
+    <ID>AvoidVarsExceptWithDelegate:HistoryTest.kt$HistoryTest$private lateinit var history: History</ID>
+    <ID>AvoidVarsExceptWithDelegate:HistoryTest.kt$HistoryTest$private lateinit var pageView: PageView</ID>
+    <ID>AvoidVarsExceptWithDelegate:HistoryTest.kt$HistoryTest$var undone = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:ImportEngine.kt$ImportEngine$@Inject lateinit var xoppFile: XoppFile</ID>
+    <ID>AvoidVarsExceptWithDelegate:ImportEngine.kt$ImportEngine$var name = raw</ID>
+    <ID>AvoidVarsExceptWithDelegate:LibraryViewModel.kt$LibraryViewModel$var currentId: String? = folderId</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var colorHandle: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var dirtyRect = Rect()</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var fragmentShader: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var glProgram: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var mvpMatrixHandle: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var positionHandle: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var vertexBuffer: FloatBuffer? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$private var vertexShader: Int = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$var isInitialized = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$var maxX = Float.MIN_VALUE</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$var maxY = Float.MIN_VALUE</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$var minX = Float.MAX_VALUE</ID>
+    <ID>AvoidVarsExceptWithDelegate:LineRenderer.kt$LineRenderer$var minY = Float.MAX_VALUE</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$// TODO: Check if migrating to LocalConfiguration in Compose is good idea var SCREEN_WIDTH = EpdController.getEpdHeight().toInt()</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$// Delay the init till we have the permissions required @Inject lateinit var kvProxy: dagger.Lazy&lt;KvProxy&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var appEventUiBridge: AppEventUiBridge</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var appRepositoryLazy: dagger.Lazy&lt;AppRepository&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var editorSettingCacheManager: dagger.Lazy&lt;EditorSettingCacheManager&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var exportEngineLazy: dagger.Lazy&lt;ExportEngine&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var pageDataManager: dagger.Lazy&lt;PageDataManager&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var snackDispatcher: SnackDispatcher</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var strokeMigrationHelper: dagger.Lazy&lt;StrokeMigrationHelper&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var syncScheduler: dagger.Lazy&lt;SyncScheduler&gt;</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$MainActivity$@Inject lateinit var syncWorkUiBridge: SyncWorkUiBridge</ID>
+    <ID>AvoidVarsExceptWithDelegate:MainActivity.kt$var SCREEN_HEIGHT = EpdController.getEpdWidth().toInt()</ID>
+    <ID>AvoidVarsExceptWithDelegate:Notebook.kt$BookRepository$var correctedIndex = index</ID>
+    <ID>AvoidVarsExceptWithDelegate:NotebookReconciliationService.kt$NotebookReconciliationService$var persistentError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:NotebookSyncService.kt$NotebookSyncService$var pageToSave = page</ID>
+    <ID>AvoidVarsExceptWithDelegate:NotebookSyncService.kt$NotebookSyncService$var persistentError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:NotebookTouchDebouncer.kt$NotebookTouchDebouncer$private var flushJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:OnyxDisplayController.kt$OnyxDisplayController$@Volatile private var appliedProfile: AppSettings.DisplayProfile = AppSettings.DisplayProfile.System</ID>
+    <ID>AvoidVarsExceptWithDelegate:OnyxInputHandler.kt$OnyxInputHandler$var isErasing: Boolean = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:OnyxInputHandler.kt$OnyxInputHandler$var lastStrokeEndTime: Long = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:OnyxInputHandler.kt$OnyxInputHandler.Companion$// The Onyx firmware drives a single raw-input surface at a time, so device-wide // coordination is needed: track which handler claimed the surface last, and let a // handler ask whether it is still the owner (see DrawCanvas surfaceDestroyed). // Kept private to this class instead of a global mutable variable. @Volatile private var rawInputSurfaceOwner: WeakReference&lt;OnyxInputHandler&gt;? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var currentX: Float = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var currentY: Float = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var lineRenderer: LineRenderer = LineRenderer()</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var motionEventPredictor: MotionEventPredictor? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var previousX: Float = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var previousY: Float = 0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$private var timeOfLastRefresh2 = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:OpenGLRenderer.kt$OpenGLRenderer$var frontBufferRenderer: GLFrontBufferedRenderer&lt;StrokePoint&gt;? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$CachedBackground$var bitmap: Bitmap? = loadBackgroundBitmap(path, pageNumber, scale)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$/** --- cleaning and memory management ---- **/ @Volatile private var currentCacheSizeMB = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$// On change, we need to adjust stroke size. private var pageZoom = LinkedHashMap&lt;String, Float&gt;()</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$@Volatile private var currentPageNumber = -1</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$private var entrySizeMB = LinkedHashMap&lt;String, Int&gt;()</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$private var imagesById = LinkedHashMap&lt;String, HashMap&lt;String, Image&gt;&gt;()</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$private var strokesById = LinkedHashMap&lt;String, HashMap&lt;String, Stroke&gt;&gt;()</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$var pageFromDb: Page? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$var strokeMemory = 120L</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageDataManager.kt$PageDataManager$var totalBytes = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageScrubber.kt$var newIndex = newIndexRaw</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$// Spare screen-sized buffer reused by updateScroll to avoid allocating a new // bitmap on every scroll event. Ping-ponged with windowedBitmap; recreated only // when the canvas size/config changes (zoom, dimension change, page switch). private var scrollBackBuffer: Bitmap? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$// scroll is observed by ui, represents top left corner var scroll: Offset get() = pageDataManager.getPageScroll(currentPageId) set(value) = pageDataManager.setPageScroll(currentPageId, value)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$// var strokes = listOf&lt;Stroke&gt;() var strokes: List&lt;Stroke&gt; get() = pageDataManager.getStrokes(currentPageId) set(value) = pageDataManager.setStrokes(currentPageId, value)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$// warning: The setter is delayed! private var currentBackground: CachedBackground get() = pageDataManager.getCurrentBackground() set(value) = pageDataManager.setCurrentBackground(value)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$@Volatile var windowedBitmap = createBitmap(viewWidth, viewHeight) private set</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$@Volatile var windowedCanvas = Canvas(windowedBitmap) private set</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$private var loadingJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$var deltaInPage = Offset(dragDelta.x / zoomLevel.value, dragDelta.y / zoomLevel.value)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$var height: Int get() = pageDataManager.getPageHeight(currentPageId) ?: viewHeight set(value) { pageDataManager.setPageHeight(currentPageId, value) }</ID>
+    <ID>AvoidVarsExceptWithDelegate:PageView.kt$PageView$var images: List&lt;Image&gt; get() = pageDataManager.getImages(currentPageId) set(value) = pageDataManager.setImages(currentPageId, value)</ID>
+    <ID>AvoidVarsExceptWithDelegate:PreviewBitmapStore.kt$var bitmapFromDisk: Bitmap? = try { loadHQPagePreview( context, pageIdToLoad, null, null, pageUpdatedAtMs = pageUpdatedAtMs, requireExactMatch = false ) } catch (t: Throwable) { log.e("Failed to load persisted bitmap: ${t.message}") null }</ID>
+    <ID>AvoidVarsExceptWithDelegate:QuickNavGesture.kt$var opened = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:QuickNavViewModel.kt$QuickNavViewModel$private var lastScrubEndTargetPageId: String? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:ReorderableGridItem.kt$ReorderableGridState$// -1 =&gt; no valid insertion (drop before/after itself) var hoverInsertionIndex by mutableIntStateOf(-1) internal set</ID>
+    <ID>AvoidVarsExceptWithDelegate:ReorderableGridItem.kt$ReorderableGridState$var fromIndex by mutableIntStateOf(-1) internal set</ID>
+    <ID>AvoidVarsExceptWithDelegate:ReorderableGridItem.kt$var best: LazyGridItemInfo? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:ReorderableGridItem.kt$var bestDist = Float.MAX_VALUE</ID>
+    <ID>AvoidVarsExceptWithDelegate:SelectionState.kt$SelectionState$var accumulatedError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:SelectorBitmap.kt$var selectionDisplaceOffset = controlTower.page.applyZoom(selectionState.selectionDisplaceOffset ?: return)</ID>
+    <ID>AvoidVarsExceptWithDelegate:StrokePointConverter.kt$var bodyBuffer = TL_ENCODING_BUFFER.get()</ID>
+    <ID>AvoidVarsExceptWithDelegate:StrokePointConverter.kt$var m = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:StrokePointConverter.kt$var restored = TL_DECOMP_BUFFER.get()</ID>
+    <ID>AvoidVarsExceptWithDelegate:StrokeReencoding.kt$StrokeMigrationHelper$var batchSize = 1500</ID>
+    <ID>AvoidVarsExceptWithDelegate:SyncForceService.kt$SyncForceService$var persistentError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:SyncOrchestrator.kt$SyncOrchestrator$var nonCriticalError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:SyncWorkUiBridge.kt$SyncWorkUiBridge$// Flag to track the very first time the Flow reads from the DB private var isInitialDbRead = true</ID>
+    <ID>AvoidVarsExceptWithDelegate:ThumbnailBackfillQueue.kt$ThumbnailBackfillQueue$private var cycleDone = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:ThumbnailBackfillQueue.kt$ThumbnailBackfillQueue$private var cycleTotal = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:ThumbnailBackfillQueue.kt$ThumbnailBackfillQueue$private var isCycleActive = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:ThumbnailBackfillQueue.kt$ThumbnailBackfillQueue$private var lastUpdateMs = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:Timing.kt$Timing$private var lastCheckpoint = startTime</ID>
+    <ID>AvoidVarsExceptWithDelegate:Timing.kt$Timing$private var stepCount = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$DownloadedFile$var result = content.contentHashCode()</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var currentHref: String? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var currentLastModified: Date? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var currentPath = ""</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var eventType = parser.eventType</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var inResponse = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:WebDAVClient.kt$WebDAVClient$var total = 0L</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var divisor = 1.0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var end = start</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var eventType = parser.eventType</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var eventType = parser.next()</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var firstPoint = true</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var fraction = 0.0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var hasData = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var i = start</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var intPart = 0.0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var isFraction = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var isNegative = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var offset = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var page = pageTemplate</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var pageCount = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var pageCreated = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var result = buf</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var resultIdx = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var start = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var strokeBatch = ArrayList&lt;Stroke&gt;(STROKE_SAVE_BATCH_SIZE)</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile$var tailSize = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile.ParseState$/** * Reusable float storage for stroke point coordinates. * Grows to fit the largest stroke seen so far, then stays at that size. */ var coordsBuffer = FloatArray(128)</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile.ParseState$/** * Reusable float storage for the width attribute (strokeWidth + per-point pressures). * Grows to fit the largest pressure array seen, then stays at that size. */ var widthsBuffer = FloatArray(16)</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile.XmlTextInputStream$private var currentText: String? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile.XmlTextInputStream$private var eof = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppFile.kt$XoppFile.XmlTextInputStream$private var offset = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppImportTest.kt$XoppImportTest$private lateinit var db: AppDatabase</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppImportTest.kt$XoppImportTest$private lateinit var importEngine: ImportEngine</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppImportTest.kt$XoppImportTest$private var previousScreenHeight: Int = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppImportTest.kt$XoppImportTest$private var previousScreenWidth: Int = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:XoppImportTest.kt$XoppImportTest$var strokesFound = false</ID>
+    <ID>AvoidVarsExceptWithDelegate:backgrounds.kt$var currentTop = filledHeight</ID>
+    <ID>AvoidVarsExceptWithDelegate:backgrounds.kt$var filledHeight = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:backgrounds.kt$var pageNum = currentPage</ID>
+    <ID>AvoidVarsExceptWithDelegate:backgrounds.kt$var yPos = (currentPage * pageHeight) - scroll.y</ID>
+    <ID>AvoidVarsExceptWithDelegate:dbUtils.kt$var outputDir = ensureBackgroundsFolder()</ID>
+    <ID>AvoidVarsExceptWithDelegate:dbUtils.kt$var outputDir = ensureImagesFolder()</ID>
+    <ID>AvoidVarsExceptWithDelegate:einkHelper.kt$private var screenFreezeResetJob: Job? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:eraser.kt$var numReversals = 0</ID>
+    <ID>AvoidVarsExceptWithDelegate:eraser.kt$var outPath = Path()</ID>
+    <ID>AvoidVarsExceptWithDelegate:eraser.kt$var totalDistance = 0.0f</ID>
+    <ID>AvoidVarsExceptWithDelegate:flowExtensions.kt$var prev: T? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:pageDrawing.kt$var persistentError: DomainError? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderFromFile.kt$var sampleSize = 1</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderPdf.kt$var bitmap = createBitmap(fullOutW, fullOutH)</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderPdf.kt$var bitmap: Bitmap</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderPdf.kt$var doc: Document? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderPdf.kt$var pfd: ParcelFileDescriptor? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:renderPdf.kt$var renderer: PdfRenderer? = null</ID>
+    <ID>AvoidVarsExceptWithDelegate:versionChecker.kt$// cache var isLatestVersion: Boolean? = null</ID>
     <ID>ComplexCondition:ReorderableGridItem.kt$id != null &amp;&amp; from &gt;= 0 &amp;&amp; to &gt;= 0 &amp;&amp; to != from &amp;&amp; to != from + 1</ID>
     <ID>ComplexCondition:renderPdf.kt$rect.left == 0 &amp;&amp; rect.top == 0 &amp;&amp; rect.width() == width &amp;&amp; rect.height() == height</ID>
     <ID>ConstructorParameterNaming:eraser.kt$Eraser$val _name: String</ID>
@@ -15,6 +230,21 @@
     <ID>CyclomaticComplexMethod:SyncWorker.kt$SyncWorker$override suspend fun doWork(): Result</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:BugReportGenerator.kt$BugReportGenerator$val (datetime, _, _, level, tag, message) = match.destructured</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:versionChecker.kt$Version.Companion$val (major, minor, patch, dateStr) = match.destructured</ID>
+    <ID>DontForceCast:AppResultTest.kt$AppResultTest$as</ID>
+    <ID>DontForceCast:BackgroundSelector.kt$as</ID>
+    <ID>DontForceCast:Clipboard.kt$ClipboardStore$as</ID>
+    <ID>DontForceCast:ConnectivityChecker.kt$ConnectivityChecker$as</ID>
+    <ID>DontForceCast:ExportEngine.kt$ExportEngine$as</ID>
+    <ID>DontForceCast:NotebookReconciliationService.kt$NotebookReconciliationService$as</ID>
+    <ID>DontForceCast:NotebookSerializerPageTest.kt$NotebookSerializerPageTest$as</ID>
+    <ID>DontForceCast:NotebookSerializerTest.kt$NotebookSerializerTest$as</ID>
+    <ID>DontForceCast:QuickNav.kt$&lt;no name provided&gt;$as</ID>
+    <ID>DontForceCast:SyncOrchestratorTest.kt$SyncOrchestratorTest$as</ID>
+    <ID>DontForceCast:SyncProgressReporterTest.kt$SyncProgressReporterTest$as</ID>
+    <ID>DontForceCast:WebDAVClient.kt$DownloadedFile$as</ID>
+    <ID>DontForceCast:WelcomeView.kt$as</ID>
+    <ID>DontForceCast:XoppImportTest.kt$XoppImportTest$as</ID>
+    <ID>DontForceCast:share.kt$as</ID>
     <ID>EmptyFunctionBlock:OnyxInputHandler.kt$OnyxInputHandler.&lt;no name provided&gt;${ }</ID>
     <ID>ForbiddenComment:BreadCrumb.kt$// TODO: Move it!!! And check the usage of it!!</ID>
     <ID>ForbiddenComment:EditorControlTower.kt$EditorControlTower$// TODO: remove it, change to proper solution</ID>
@@ -27,7 +257,6 @@
     <ID>ForbiddenComment:OnyxInputHandler.kt$OnyxInputHandler$// TODO: As OnyxInput is not done by lazy, which forces evaluation of the touchHelper</ID>
     <ID>ForbiddenComment:Page.kt$// TODO: make it better</ID>
     <ID>ForbiddenComment:PageDataManager.kt$PageDataManager$// TODO: if we exited the book, we should clear the cache.</ID>
-    <ID>ForbiddenComment:PageDataManager.kt$PageDataManager$// TODO: it Does use lock, is it safe?</ID>
     <ID>ForbiddenComment:PageView.kt$PageView$// TODO: Clean it up, move some logic to pageDataManager</ID>
     <ID>ForbiddenComment:PageView.kt$PageView$// TODO: If we put it in loadPage(…) sometimes it will try to refresh</ID>
     <ID>ForbiddenComment:PageView.kt$PageView$// TODO: Problem: Sometimes refreshUi had a problem with proper refreshing screen,</ID>
@@ -67,50 +296,63 @@
     <ID>MatchingDeclarationName:SystemInformation.kt$SystemInformationDestination : NavigationDestination</ID>
     <ID>MatchingDeclarationName:WelcomeView.kt$WelcomeDestination : NavigationDestination</ID>
     <ID>MatchingDeclarationName:eraser.kt$Eraser</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// For QuickNav scrolling with previews val saveCurrent = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// For cleaning whole page, activated from toolbar menu val clearPageSignal = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// Hardware page-turn requests (volume / page-turn buttons), forwarded from // MainActivity key events. true = next page, false = previous page. Collected by // EditorView while an editor is open; MainActivity checks subscriptionCount to // know whether to consume the key event. val hardwarePageTurn = MutableSharedFlow&lt;Boolean&gt;(extraBufferCapacity = 1)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// It might be bad idea, but plan is to insert graphic in this, and then take it from it // There is probably better way val addImageByUri = MutableStateFlow&lt;Uri?&gt;(null)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// Signal to UI to close any open menus/modals, // observed in EditorView val closeMenusSignal = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// before undo we need to commit changes val commitHistorySignal = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$// used for managing drawing state on regain focus val onFocusChange = MutableSharedFlow&lt;Boolean&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val changePage = MutableSharedFlow&lt;String&gt;(extraBufferCapacity = 1)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val commitHistorySignalImmediately = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val forceUpdate = MutableSharedFlow&lt;Rect?&gt;() // null for full redraw</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val isDrawing = MutableSharedFlow&lt;Boolean&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val isScrubbing = MutableStateFlow&lt;Boolean&gt; (false)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val previewPage = MutableSharedFlow&lt;String&gt;(extraBufferCapacity = 1)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val rectangleToSelectByGesture = MutableStateFlow&lt;Rect?&gt;(null)</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val refreshUi = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val refreshUiImmediately = MutableSharedFlow&lt;Unit&gt;( replay = 1, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST )</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val reinitSignal = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val reloadFromDb = MutableSharedFlow&lt;Unit&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:CanvasEventBus.kt$CanvasEventBus$val restoreCanvas = MutableSharedFlow&lt;Unit&gt;(extraBufferCapacity = 1)</ID>
+    <ID>MutableTypeShouldBePrivate:EncodePolyline.kt$val deltas: MutableList&lt;Double&gt; = mutableListOf()</ID>
+    <ID>MutableTypeShouldBePrivate:EncodePolyline.kt$val points: MutableList&lt;T&gt; = mutableListOf()</ID>
+    <ID>MutableTypeShouldBePrivate:EncodePolyline.kt$val result: MutableList&lt;String&gt; = mutableListOf()</ID>
+    <ID>MutableTypeShouldBePrivate:EncodePolyline.kt$val valueChunks: MutableList&lt;MutableList&lt;Int&gt;&gt; = mutableListOf()</ID>
+    <ID>MutableTypeShouldBePrivate:PageDataManager.kt$PageDataManager$val saveTopic = MutableSharedFlow&lt;String&gt;()</ID>
+    <ID>MutableTypeShouldBePrivate:PageView.kt$PageView$// we need to observe zoom level, to adjust strokes size. val zoomLevel: MutableStateFlow&lt;Float&gt; = MutableStateFlow(pageDataManager.getPageZoom(currentPageId))</ID>
+    <ID>MutableTypeShouldBePrivate:ReorderableGridItem.kt$ReorderableGridState$// Per-item bounds in root (visible items only) internal val itemBounds: MutableMap&lt;String, Pair&lt;IntOffset, IntSize&gt;&gt; = mutableStateMapOf()</ID>
+    <ID>MutableTypeShouldBePrivate:operations.kt$val strokesOver: MutableList&lt;Stroke&gt; = mutableListOf()</ID>
+    <ID>MutableTypeShouldBePrivate:operations.kt$val strokesUnder: MutableList&lt;Stroke&gt; = mutableListOf()</ID>
     <ID>NestedBlockDepth:WebDAVClient.kt$WebDAVClient$private fun parseEntriesFromXml(xml: String): List&lt;Pair&lt;String, Date?&gt;&gt;</ID>
     <ID>NewLineAtEndOfFile:Anchor.kt$com.ethran.notable.ui.components.Anchor.kt</ID>
-    <ID>NewLineAtEndOfFile:AppRepository.kt$com.ethran.notable.data.AppRepository.kt</ID>
-    <ID>NewLineAtEndOfFile:BackgroundSelector.kt$com.ethran.notable.ui.dialogs.BackgroundSelector.kt</ID>
     <ID>NewLineAtEndOfFile:BackgroundType.kt$com.ethran.notable.data.model.BackgroundType.kt</ID>
-    <ID>NewLineAtEndOfFile:BugReportGenerator.kt$com.ethran.notable.ui.viewmodels.BugReportGenerator.kt</ID>
     <ID>NewLineAtEndOfFile:BugReportViewModel.kt$com.ethran.notable.ui.viewmodels.BugReportViewModel.kt</ID>
     <ID>NewLineAtEndOfFile:CanvasEventBus.kt$com.ethran.notable.editor.canvas.CanvasEventBus.kt</ID>
-    <ID>NewLineAtEndOfFile:CanvasRefreshManager.kt$com.ethran.notable.editor.canvas.CanvasRefreshManager.kt</ID>
     <ID>NewLineAtEndOfFile:Color.kt$com.ethran.notable.ui.theme.Color.kt</ID>
     <ID>NewLineAtEndOfFile:CryptoHelper.kt$com.ethran.notable.data.db.CryptoHelper.kt</ID>
     <ID>NewLineAtEndOfFile:Db.kt$com.ethran.notable.data.db.Db.kt</ID>
-    <ID>NewLineAtEndOfFile:DrawCanvas.kt$com.ethran.notable.editor.canvas.DrawCanvas.kt</ID>
     <ID>NewLineAtEndOfFile:EmptyBookWarning.kt$com.ethran.notable.ui.dialogs.EmptyBookWarning.kt</ID>
     <ID>NewLineAtEndOfFile:ExampleInstrumentedTest.kt$com.ethran.notable.ExampleInstrumentedTest.kt</ID>
     <ID>NewLineAtEndOfFile:ExampleUnitTest.kt$com.ethran.notable.ExampleUnitTest.kt</ID>
-    <ID>NewLineAtEndOfFile:ExportEngine.kt$com.ethran.notable.io.ExportEngine.kt</ID>
     <ID>NewLineAtEndOfFile:FastScroller.kt$com.ethran.notable.ui.components.FastScroller.kt</ID>
-    <ID>NewLineAtEndOfFile:FileUtils.kt$com.ethran.notable.io.FileUtils.kt</ID>
-    <ID>NewLineAtEndOfFile:Folder.kt$com.ethran.notable.data.db.Folder.kt</ID>
-    <ID>NewLineAtEndOfFile:FolderConfig.kt$com.ethran.notable.ui.dialogs.FolderConfig.kt</ID>
     <ID>NewLineAtEndOfFile:FolderSelectionDialog.kt$com.ethran.notable.ui.dialogs.FolderSelectionDialog.kt</ID>
     <ID>NewLineAtEndOfFile:FolderSerializer.kt$com.ethran.notable.sync.serializers.FolderSerializer.kt</ID>
     <ID>NewLineAtEndOfFile:GestureState.kt$com.ethran.notable.gestures.GestureState.kt</ID>
     <ID>NewLineAtEndOfFile:GesturesSettings.kt$com.ethran.notable.ui.components.GesturesSettings.kt</ID>
     <ID>NewLineAtEndOfFile:History.kt$com.ethran.notable.editor.state.History.kt</ID>
-    <ID>NewLineAtEndOfFile:HomeView.kt$com.ethran.notable.ui.views.HomeView.kt</ID>
     <ID>NewLineAtEndOfFile:Image.kt$com.ethran.notable.data.db.Image.kt</ID>
     <ID>NewLineAtEndOfFile:ImageHandler.kt$com.ethran.notable.editor.utils.ImageHandler.kt</ID>
-    <ID>NewLineAtEndOfFile:ImportEngine.kt$com.ethran.notable.io.ImportEngine.kt</ID>
     <ID>NewLineAtEndOfFile:LineRenderer.kt$com.ethran.notable.editor.drawing.LineRenderer.kt</ID>
     <ID>NewLineAtEndOfFile:LineToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.LineToolbarButton.kt</ID>
-    <ID>NewLineAtEndOfFile:LogView.kt$com.ethran.notable.ui.views.LogView.kt</ID>
-    <ID>NewLineAtEndOfFile:MainActivity.kt$com.ethran.notable.MainActivity.kt</ID>
     <ID>NewLineAtEndOfFile:Migrations.kt$com.ethran.notable.data.db.Migrations.kt</ID>
     <ID>NewLineAtEndOfFile:NavigationDestination.kt$com.ethran.notable.navigation.NavigationDestination.kt</ID>
     <ID>NewLineAtEndOfFile:NotableApp.kt$com.ethran.notable.NotableApp.kt</ID>
     <ID>NewLineAtEndOfFile:NotableApp.kt$com.ethran.notable.ui.components.NotableApp.kt</ID>
     <ID>NewLineAtEndOfFile:NotableNavHost.kt$com.ethran.notable.navigation.NotableNavHost.kt</ID>
-    <ID>NewLineAtEndOfFile:Notebook.kt$com.ethran.notable.data.db.Notebook.kt</ID>
     <ID>NewLineAtEndOfFile:NotebookCard.kt$com.ethran.notable.ui.components.NotebookCard.kt</ID>
     <ID>NewLineAtEndOfFile:NotebookConfig.kt$com.ethran.notable.ui.dialogs.NotebookConfig.kt</ID>
     <ID>NewLineAtEndOfFile:NotebookSerializer.kt$com.ethran.notable.sync.serializers.NotebookSerializer.kt</ID>
-    <ID>NewLineAtEndOfFile:OnyxInputHandler.kt$com.ethran.notable.editor.canvas.OnyxInputHandler.kt</ID>
     <ID>NewLineAtEndOfFile:OpenGLRenderer.kt$com.ethran.notable.editor.drawing.OpenGLRenderer.kt</ID>
     <ID>NewLineAtEndOfFile:PageCard.kt$com.ethran.notable.ui.components.PageCard.kt</ID>
     <ID>NewLineAtEndOfFile:PageDataManager.kt$com.ethran.notable.data.PageDataManager.kt</ID>
@@ -118,9 +360,7 @@
     <ID>NewLineAtEndOfFile:PageView.kt$com.ethran.notable.editor.PageView.kt</ID>
     <ID>NewLineAtEndOfFile:PagesViewModel.kt$com.ethran.notable.ui.viewmodels.PagesViewModel.kt</ID>
     <ID>NewLineAtEndOfFile:PdfImportChoiceDialog.kt$com.ethran.notable.ui.dialogs.PdfImportChoiceDialog.kt</ID>
-    <ID>NewLineAtEndOfFile:PenToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.PenToolbarButton.kt</ID>
     <ID>NewLineAtEndOfFile:PositionedToolbar.kt$com.ethran.notable.editor.ui.toolbar.PositionedToolbar.kt</ID>
-    <ID>NewLineAtEndOfFile:PreviewBitmapStore.kt$com.ethran.notable.editor.utils.PreviewBitmapStore.kt</ID>
     <ID>NewLineAtEndOfFile:QuickNav.kt$com.ethran.notable.ui.components.QuickNav.kt</ID>
     <ID>NewLineAtEndOfFile:QuickNavGesture.kt$com.ethran.notable.gestures.QuickNavGesture.kt</ID>
     <ID>NewLineAtEndOfFile:QuickNavViewModel.kt$com.ethran.notable.ui.viewmodels.QuickNavViewModel.kt</ID>
@@ -129,46 +369,135 @@
     <ID>NewLineAtEndOfFile:Select.kt$com.ethran.notable.editor.utils.Select.kt</ID>
     <ID>NewLineAtEndOfFile:SelectorBitmap.kt$com.ethran.notable.editor.ui.SelectorBitmap.kt</ID>
     <ID>NewLineAtEndOfFile:Shape.kt$com.ethran.notable.ui.theme.Shape.kt</ID>
-    <ID>NewLineAtEndOfFile:ShowPagesRow.kt$com.ethran.notable.ui.components.ShowPagesRow.kt</ID>
     <ID>NewLineAtEndOfFile:SimplePointF.kt$com.ethran.notable.data.model.SimplePointF.kt</ID>
     <ID>NewLineAtEndOfFile:SnackBar.kt$com.ethran.notable.ui.SnackBar.kt</ID>
     <ID>NewLineAtEndOfFile:SnackDispatcher.kt$com.ethran.notable.ui.SnackDispatcher.kt</ID>
-    <ID>NewLineAtEndOfFile:StrokeMenu.kt$com.ethran.notable.editor.ui.toolbar.StrokeMenu.kt</ID>
     <ID>NewLineAtEndOfFile:StrokePointConverter.kt$com.ethran.notable.data.db.StrokePointConverter.kt</ID>
     <ID>NewLineAtEndOfFile:Switch.kt$com.ethran.notable.ui.components.Switch.kt</ID>
     <ID>NewLineAtEndOfFile:SyncWorkUiBridge.kt$com.ethran.notable.ui.SyncWorkUiBridge.kt</ID>
-    <ID>NewLineAtEndOfFile:SyncWorker.kt$com.ethran.notable.sync.SyncWorker.kt</ID>
-    <ID>NewLineAtEndOfFile:SystemInformationViewModel.kt$com.ethran.notable.ui.viewmodels.SystemInformationViewModel.kt</ID>
     <ID>NewLineAtEndOfFile:Theme.kt$com.ethran.notable.ui.theme.Theme.kt</ID>
     <ID>NewLineAtEndOfFile:Timing.kt$com.ethran.notable.utils.Timing.kt</ID>
-    <ID>NewLineAtEndOfFile:Toolbar.kt$com.ethran.notable.editor.ui.toolbar.Toolbar.kt</ID>
     <ID>NewLineAtEndOfFile:ToolbarButton.kt$com.ethran.notable.editor.ui.toolbar.ToolbarButton.kt</ID>
     <ID>NewLineAtEndOfFile:Topbar.kt$com.ethran.notable.editor.ui.Topbar.kt</ID>
     <ID>NewLineAtEndOfFile:Type.kt$com.ethran.notable.ui.theme.Type.kt</ID>
-    <ID>NewLineAtEndOfFile:WelcomeView.kt$com.ethran.notable.ui.views.WelcomeView.kt</ID>
     <ID>NewLineAtEndOfFile:backgrounds.kt$com.ethran.notable.editor.drawing.backgrounds.kt</ID>
     <ID>NewLineAtEndOfFile:debug.kt$com.ethran.notable.utils.debug.kt</ID>
-    <ID>NewLineAtEndOfFile:einkHelper.kt$com.ethran.notable.editor.utils.einkHelper.kt</ID>
     <ID>NewLineAtEndOfFile:eraser.kt$com.ethran.notable.editor.utils.eraser.kt</ID>
     <ID>NewLineAtEndOfFile:flowExtensions.kt$com.ethran.notable.utils.flowExtensions.kt</ID>
-    <ID>NewLineAtEndOfFile:handleInput.kt$com.ethran.notable.editor.utils.handleInput.kt</ID>
-    <ID>NewLineAtEndOfFile:importPdf.kt$com.ethran.notable.io.importPdf.kt</ID>
     <ID>NewLineAtEndOfFile:operations.kt$com.ethran.notable.editor.utils.operations.kt</ID>
     <ID>NewLineAtEndOfFile:pageDrawing.kt$com.ethran.notable.editor.drawing.pageDrawing.kt</ID>
-    <ID>NewLineAtEndOfFile:pen.kt$com.ethran.notable.editor.utils.pen.kt</ID>
     <ID>NewLineAtEndOfFile:penStrokes.kt$com.ethran.notable.editor.drawing.penStrokes.kt</ID>
-    <ID>NewLineAtEndOfFile:renderFromFile.kt$com.ethran.notable.io.renderFromFile.kt</ID>
     <ID>NewLineAtEndOfFile:renderPdf.kt$com.ethran.notable.io.renderPdf.kt</ID>
-    <ID>NewLineAtEndOfFile:share.kt$com.ethran.notable.io.share.kt</ID>
-    <ID>SpreadOperator:PageDataManager.kt$PageDataManager$(*images[pageId]!!.map { img -&gt; img.id to img }.toTypedArray())</ID>
-    <ID>SpreadOperator:PageDataManager.kt$PageDataManager$(*strokes[pageId]!!.map { s -&gt; s.id to s }.toTypedArray())</ID>
+    <ID>NoCallbacksInFunctions:AtomicFileStore.kt$AtomicFileStore$@Synchronized fun write(target: File, writer: (OutputStream) -&gt; Unit)</ID>
+    <ID>NoCallbacksInFunctions:BackgroundFileWatcher.kt$BackgroundFileWatcher$fun startCollector(onPageInvalidated: suspend (pageId: String) -&gt; Unit)</ID>
+    <ID>NoCallbacksInFunctions:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$private fun runOnMain(block: () -&gt; Unit)</ID>
+    <ID>NoCallbacksInFunctions:EncodePolyline.kt$fun &lt;T : Number&gt; decode(polyline: String, precision: Int = 5, caster: (Double) -&gt; T): List&lt;T&gt;</ID>
+    <ID>NoCallbacksInFunctions:ExportEngine.kt$ExportEngine$private suspend fun prepareExportFile( displayName: String, writer: suspend (OutputStream) -&gt; Unit, ): File</ID>
+    <ID>NoCallbacksInFunctions:ExportEngine.kt$ExportEngine$private suspend fun saveInternal( folderUri: Uri, fileName: String, extension: String, mimeType: String, overwrite: Boolean, writer: suspend (OutputStream) -&gt; Unit ): String</ID>
+    <ID>NoCallbacksInFunctions:ExportEngine.kt$ExportEngine$private suspend fun saveStream( folderUri: Uri, fileName: String, extension: String, mimeType: String, overwrite: Boolean, writer: suspend (OutputStream) -&gt; Unit ): String</ID>
+    <ID>NoCallbacksInFunctions:GeometryExtensions.kt$fun &lt;T&gt; calculateBoundingBox( touchPoints: List&lt;T&gt;, getCoordinates: (T) -&gt; Pair&lt;Float, Float&gt; ): RectF</ID>
+    <ID>NoCallbacksInFunctions:ImportEngine.kt$ImportEngine$private suspend fun resolveTargetBook( options: ImportOptions, createBook: () -&gt; Notebook ): AppResult&lt;Notebook, DomainError&gt;</ID>
+    <ID>NoCallbacksInFunctions:OnyxDeviceCapabilities.kt$OnyxCapabilities$fun &lt;T&gt; safe(name: String, default: T, call: () -&gt; T): T</ID>
+    <ID>NoCallbacksInFunctions:PageDataManager.kt$PageDataManager$private inline fun &lt;T&gt; mutateUiState(block: () -&gt; T): T</ID>
+    <ID>NoCallbacksInFunctions:Settings.kt$fun openInBrowser(context: Context, uriString: String, onError: (String) -&gt; Unit)</ID>
+    <ID>NoCallbacksInFunctions:SettingsViewModel.kt$SettingsViewModel$private fun runSyncWithSnack( textDuring: String, successMessage: String, action: suspend () -&gt; AppResult&lt;Unit, DomainError&gt; )</ID>
+    <ID>NoCallbacksInFunctions:SnackBar.kt$SnackState$suspend fun &lt;T&gt; showSnackDuring( text: String, task: suspend () -&gt; T, ): T</ID>
+    <ID>NoCallbacksInFunctions:SnackBar.kt$SnackState$suspend fun runWithSnack( textDuring: String, resultDurationMs: Int = 2000, block: suspend () -&gt; String ): String</ID>
+    <ID>NoCallbacksInFunctions:SystemInformationViewModel.kt$SystemInformationViewModel$fun &lt;T&gt; safe(name: String, call: () -&gt; T?): T?</ID>
+    <ID>NoCallbacksInFunctions:SystemInformationViewModel.kt$SystemInformationViewModel$fun &lt;T&gt; safeNullable(name: String, call: () -&gt; T?): T?</ID>
+    <ID>NoCallbacksInFunctions:Timing.kt$Timing.Companion$inline fun &lt;T&gt; measure( label: String = "Timing", showLogs: Boolean = true, block: () -&gt; T ): T</ID>
+    <ID>NoCallbacksInFunctions:XoppFile.kt$XoppFile$private suspend fun parsePageContentStreaming( parser: XmlPullParser, pageTemplate: Page, state: ParseState, onPageCreated: suspend (Page) -&gt; Unit, onStrokeBatch: suspend (List&lt;Stroke&gt;) -&gt; Unit, ): List&lt;Image&gt;</ID>
+    <ID>NoCallbacksInFunctions:XoppFile.kt$XoppFile$suspend fun importBook( uri: Uri, onPageCreated: suspend (Page) -&gt; Unit, onStrokeBatch: suspend (List&lt;Stroke&gt;) -&gt; Unit, onPageFinalized: suspend (pageId: String, images: List&lt;Image&gt;) -&gt; Unit, ): Int</ID>
+    <ID>NoCallbacksInFunctions:importPdf.kt$@WorkerThread suspend fun importPdf( fileToSave: File, pageCount: Int, options: ImportOptions, savePageToDatabase: suspend (PageWithData) -&gt; Unit ): String</ID>
+    <ID>NoLateinitVar:EditorSeedingTests.kt$EditorSeedingTests$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:EditorSimpleStateTests.kt$EditorSimpleStateTests$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:EditorUnsupportedConcurrentChangeTests.kt$EditorUnsupportedConcurrentChangeTests$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var notebookDao: NotebookDao</ID>
+    <ID>NoLateinitVar:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$private lateinit var pageDao: PageDao</ID>
+    <ID>NoLateinitVar:ExportEngine.kt$ExportEngine$@Inject lateinit var xoppFile : XoppFile</ID>
+    <ID>NoLateinitVar:HistoryTest.kt$HistoryTest$private lateinit var history: History</ID>
+    <ID>NoLateinitVar:HistoryTest.kt$HistoryTest$private lateinit var pageView: PageView</ID>
+    <ID>NoLateinitVar:ImportEngine.kt$ImportEngine$@Inject lateinit var xoppFile: XoppFile</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$// Delay the init till we have the permissions required @Inject lateinit var kvProxy: dagger.Lazy&lt;KvProxy&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var appEventUiBridge: AppEventUiBridge</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var appRepositoryLazy: dagger.Lazy&lt;AppRepository&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var editorSettingCacheManager: dagger.Lazy&lt;EditorSettingCacheManager&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var exportEngineLazy: dagger.Lazy&lt;ExportEngine&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var pageDataManager: dagger.Lazy&lt;PageDataManager&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var snackDispatcher: SnackDispatcher</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var strokeMigrationHelper: dagger.Lazy&lt;StrokeMigrationHelper&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var syncScheduler: dagger.Lazy&lt;SyncScheduler&gt;</ID>
+    <ID>NoLateinitVar:MainActivity.kt$MainActivity$@Inject lateinit var syncWorkUiBridge: SyncWorkUiBridge</ID>
+    <ID>NoLateinitVar:XoppImportTest.kt$XoppImportTest$private lateinit var db: AppDatabase</ID>
+    <ID>NoLateinitVar:XoppImportTest.kt$XoppImportTest$private lateinit var importEngine: ImportEngine</ID>
+    <ID>NoNotNullOperator:AppRepository.kt$AppRepository$book!!</ID>
+    <ID>NoNotNullOperator:AtomicFileStoreTest.kt$AtomicFileStoreTest$target.parentFile!!</ID>
+    <ID>NoNotNullOperator:DocumentKindDetectorTest.kt$DocumentKindDetectorTest$result.error!!</ID>
+    <ID>NoNotNullOperator:EditorGestureReceiver.kt$rectangleBounds!!</ID>
+    <ID>NoNotNullOperator:EditorViewModel.kt$EditorViewModel$bookId!!</ID>
+    <ID>NoNotNullOperator:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$loaded!!</ID>
+    <ID>NoNotNullOperator:EncodingTest.kt$EncodingTest$valid.maxOrNull()!!</ID>
+    <ID>NoNotNullOperator:EncodingTest.kt$EncodingTest$valid.minOrNull()!!</ID>
+    <ID>NoNotNullOperator:FolderConfig.kt$folder!!</ID>
+    <ID>NoNotNullOperator:HomeView.kt$newlyCreatedBookId!!</ID>
+    <ID>NoNotNullOperator:NotableNavHost.kt$it.arguments?.getString(PagesDestination.BOOK_ID_ARG)!!</ID>
+    <ID>NoNotNullOperator:NotableNavigator.kt$NotableNavigator$backStackEntry.arguments?.getString(EditorDestination.PAGE_ID_ARG)!!</ID>
+    <ID>NoNotNullOperator:NotebookConfig.kt$book!!</ID>
+    <ID>NoNotNullOperator:NotebookSyncService.kt$NotebookSyncService$persistentError!!</ID>
+    <ID>NoNotNullOperator:OnyxInputHandler.kt$OnyxInputHandler$touchHelper!!</ID>
+    <ID>NoNotNullOperator:PageDataManager.kt$PageDataManager$pageFromDb?.notebookId!!</ID>
+    <ID>NoNotNullOperator:PageDataManager.kt$PageDataManager$strokes[pageId]!!</ID>
+    <ID>NoNotNullOperator:PageView.kt$PageView$windowedBitmap.config!!</ID>
+    <ID>NoNotNullOperator:PreviewBitmapStore.kt$scroll!!</ID>
+    <ID>NoNotNullOperator:Select.kt$state.firstPageCut!!</ID>
+    <ID>NoNotNullOperator:Select.kt$state.secondPageCut!!</ID>
+    <ID>NoNotNullOperator:SelectionState.kt$SelectionState$selectedImages!!</ID>
+    <ID>NoNotNullOperator:SelectionState.kt$SelectionState$selectedStrokes!!</ID>
+    <ID>NoNotNullOperator:SelectionState.kt$SelectionState$selectionDisplaceOffset!!</ID>
+    <ID>NoNotNullOperator:SelectionState.kt$SelectionState$selectionRect!!</ID>
+    <ID>NoNotNullOperator:SelectorBitmap.kt$selectionState.selectedBitmap!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$bodyBuffer!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$p.dt!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$p.pressure!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$p.tiltX!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$p.tiltY!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverter.kt$restored!!</ID>
+    <ID>NoNotNullOperator:StrokePointConverterTest.kt$StrokePointConverterTest$e.message!!</ID>
+    <ID>NoNotNullOperator:SyncProgressReporterTest.kt$SyncProgressReporterTest$(reporter.state.value as SyncState.Syncing).item!!</ID>
+    <ID>NoNotNullOperator:SyncProgressReporterTest.kt$SyncProgressReporterTest$s.item!!</ID>
+    <ID>NoNotNullOperator:XoppFile.kt$XoppFile.XmlTextInputStream$currentText!!</ID>
+    <ID>NoNotNullOperator:XoppImportTest.kt$XoppImportTest$db.pageDao().getById(firstPageIds.first())!!</ID>
+    <ID>NoNotNullOperator:XoppImportTest.kt$XoppImportTest$db.pageDao().getById(secondPageIds.first())!!</ID>
+    <ID>NoNotNullOperator:operations.kt$maxY!!</ID>
+    <ID>NoNotNullOperator:versionChecker.kt$isLatestVersion!!</ID>
+    <ID>NoRunBlocking:EditorSeedingTests.kt$EditorSeedingTests$runBlocking { withTimeout(30_000) { val seeded = TestNotebookSeeder.seedNotebook(db, pageCount = 3, strokesPerPage = 10) val pages = db.pageDao().getByIds(seeded.pageIds) assertTrue(pages.size == 3) val firstPageWithData = db.pageDao().getPageWithDataById(seeded.pageIds.first()) requireNotNull(firstPageWithData) assertTrue(firstPageWithData.strokes.isNotEmpty()) } }</ID>
+    <ID>NoRunBlocking:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$runBlocking { android.util.Log.d("EditorTest", "Awaiting toolbar page change...") awaitToolbarPage(viewModel, seeded.pageIds[1]) android.util.Log.d("EditorTest", "Toolbar page changed, awaiting selection reset...") awaitSelectionReset(viewModel) android.util.Log.d("EditorTest", "Selection reset completed") }</ID>
+    <ID>NoRunBlocking:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$runBlocking { android.util.Log.d("EditorTest", "Loading initial toolbar state...") viewModel.loadToolbarState(seeded.notebookId, seeded.pageIds.first()) }</ID>
+    <ID>NoRunBlocking:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$runBlocking { android.util.Log.d("EditorTest", "Seeding notebook...") TestNotebookSeeder.seedNotebook(db, pageCount = 3, strokesPerPage = 10) }</ID>
+    <ID>NoRunBlocking:EditorUnsupportedConcurrentChangeTests.kt$EditorUnsupportedConcurrentChangeTests$runBlocking { android.util.Log.i("EditorTest", "Loading initial toolbar state...") viewModel.loadToolbarState(seeded.notebookId, seeded.pageIds.first()) }</ID>
+    <ID>NoRunBlocking:EditorUnsupportedConcurrentChangeTests.kt$EditorUnsupportedConcurrentChangeTests$runBlocking { android.util.Log.i("EditorTest", "Seeding notebook...") TestNotebookSeeder.seedNotebook(db, pageCount = 3, strokesPerPage = 10) }</ID>
+    <ID>NoRunBlocking:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$runBlocking { val emptyIdPage = Page( id = "", // Empty ID background = "blank", backgroundType = "native" ) pageDao.create(emptyIdPage) val loaded = pageDao.getById("") assertNotNull("Should load page with empty string ID", loaded) assertEquals("", loaded!!.id) }</ID>
+    <ID>NoRunBlocking:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$runBlocking { val notebook = Notebook( id = "notebook-1", pageIds = listOf("page-1", "", "page-2") // empty string as page id ) notebookDao.create(notebook) val loaded = notebookDao.getById("notebook-1") assertNotNull(loaded) assertEquals(3, loaded!!.pageIds.size) assertEquals("", loaded.pageIds[1]) }</ID>
+    <ID>NoRunBlocking:XoppImportTest.kt$XoppImportTest$runBlocking { val context = ApplicationProvider.getApplicationContext&lt;Context&gt;() val testContext = InstrumentationRegistry.getInstrumentation().context // 1. Extract asset to a temporary file to get a Uri val testFile = File(context.cacheDir, "test_notebook.xopp") testContext.assets.open("test_notebook.xopp").use { input -&gt; testFile.outputStream().use { output -&gt; input.copyTo(output) } } val uri = Uri.fromFile(testFile) // 2. Perform import (passing .xopp title helps recognition if mime-type is unknown) val result = importEngine.import(uri, ImportOptions(bookTitle = "test_notebook.xopp")) // 3. Assertions assertTrue("Import failed: $result", result is AppResult.Success) val importedPageIds = (result as AppResult.Success).data assertTrue("No pages imported", importedPageIds.isNotEmpty()) val notebooks = db.notebookDao().getAll() assertEquals("Should create one notebook", 1, notebooks.size) val book = notebooks.first() // ImportEngine should have stripped .xopp if it was present in the name or detected by type assertEquals("test notebook", book.title) assertEquals("Page count mismatch", importedPageIds.size, book.pageIds.size) // Verify strokes were imported for at least one page var strokesFound = false for (pageId in importedPageIds) { val pageWithData = db.pageDao().getPageWithDataById(pageId) if (pageWithData?.strokes?.isNotEmpty() == true) { strokesFound = true break } } assertTrue("No strokes found in any of the imported pages", strokesFound) // Detailed check on the first notebook entry assertNotNull("Book ID should not be null", book.id) assertEquals("Notebook ID mismatch in page", book.id, db.pageDao().getById(importedPageIds.first())?.notebookId) }</ID>
+    <ID>NoRunBlocking:XoppImportTest.kt$XoppImportTest$runBlocking { val context = ApplicationProvider.getApplicationContext&lt;Context&gt;() val testContext = InstrumentationRegistry.getInstrumentation().context // 1. Import the fixture to get a real notebook into the database. val sourceFile = File(context.cacheDir, "roundtrip_source.xopp") testContext.assets.open("test_notebook.xopp").use { input -&gt; sourceFile.outputStream().use { input.copyTo(it) } } val firstResult = importEngine.import( Uri.fromFile(sourceFile), ImportOptions(bookTitle = "RoundTripSource.xopp") ) assertTrue("Fixture import failed: $firstResult", firstResult is AppResult.Success) val firstPageIds = (firstResult as AppResult.Success).data val sourceBook = db.notebookDao().getAll().first { it.title == "RoundTripSource" } // Give the first page a native background style so the round trip exercises it. val firstPage = db.pageDao().getById(firstPageIds.first())!! db.pageDao().update(firstPage.copy(background = "lined", backgroundType = "native")) // The exporter skips degenerate strokes (fewer than 3 points), so the // round trip should preserve exactly the exportable strokes. val exportableStrokeCounts = firstPageIds.map { pageId -&gt; db.pageDao().getPageWithDataById(pageId)?.strokes?.count { it.points.size &gt;= 3 } ?: 0 } // 2. Export the notebook to a .xopp file. val exportedFile = File(context.cacheDir, "roundtrip_exported.xopp") val xoppFile = XoppFile( context, PageRepository(db.pageDao()), BookRepository(db.notebookDao(), db.pageDao()), DefaultAppEventBus() ) exportedFile.outputStream().use { out -&gt; xoppFile.writeToXoppStream(ExportTarget.Book(sourceBook.id), out) } assertTrue("Export produced an empty file", exportedFile.length() &gt; 0) // 3. Import the exported file and compare. val secondResult = importEngine.import( Uri.fromFile(exportedFile), ImportOptions(bookTitle = "RoundTripCopy.xopp") ) assertTrue("Re-import failed: $secondResult", secondResult is AppResult.Success) val secondPageIds = (secondResult as AppResult.Success).data assertEquals("Page count changed in round trip", firstPageIds.size, secondPageIds.size) val roundTrippedCounts = secondPageIds.map { pageId -&gt; db.pageDao().getPageWithDataById(pageId)?.strokes?.size ?: 0 } assertEquals( "Exportable stroke counts changed in round trip", exportableStrokeCounts, roundTrippedCounts ) val roundTrippedFirstPage = db.pageDao().getById(secondPageIds.first())!! assertEquals("Background style lost in round trip", "lined", roundTrippedFirstPage.background) assertEquals("native", roundTrippedFirstPage.backgroundType) }</ID>
+    <ID>NoRunBlocking:XoppImportTest.kt$XoppImportTest$runBlocking { val context = ApplicationProvider.getApplicationContext&lt;Context&gt;() val testContext = InstrumentationRegistry.getInstrumentation().context val testFile = File(context.cacheDir, "Notable_Integrity.xopp") testContext.assets.open("test_notebook.xopp").use { input -&gt; testFile.outputStream().use { output -&gt; input.copyTo(output) } } val uri = Uri.fromFile(testFile) val result = importEngine.import(uri, ImportOptions(bookTitle = "IntegrityCheck.xopp")) assertTrue("Import failed: $result", result is AppResult.Success) val importedPageIds = (result as AppResult.Success).data val book = db.notebookDao().getAll().first { it.title == "IntegrityCheck" } // Check that page order in notebook matches imported order assertEquals("Page sequence mismatch", importedPageIds, book.pageIds) // Check that each page actually belongs to the notebook importedPageIds.forEach { pageId -&gt; val page = db.pageDao().getById(pageId) assertEquals("Page $pageId does not point to correct notebook", book.id, page?.notebookId) } }</ID>
+    <ID>NoRunBlocking:XoppImportTest.kt$XoppImportTest$runBlocking { val context = ApplicationProvider.getApplicationContext&lt;Context&gt;() val testContext = InstrumentationRegistry.getInstrumentation().context val testFile = File(context.cacheDir, "Notable_Title.xopp") testContext.assets.open("test_notebook.xopp").use { input -&gt; testFile.outputStream().use { output -&gt; input.copyTo(output) } } val uri = Uri.fromFile(testFile) // Pass a title WITH extension explicitly val result = importEngine.import(uri, ImportOptions(bookTitle = "ManualTitle.xopp")) assertTrue("Import failed: $result", result is AppResult.Success) val book = db.notebookDao().getAll().first { it.title == "ManualTitle" } assertNotNull("Should find notebook with stripped title", book) }</ID>
+    <ID>NoRunBlocking:XoppImportTest.kt$XoppImportTest$runBlocking { val context = ApplicationProvider.getApplicationContext&lt;Context&gt;() val testFile = File(context.cacheDir, "corrupt.xopp") testFile.writeBytes(byteArrayOf(0x00, 0x01, 0x02, 0x03, 0x42, 0x42, 0x42)) val uri = Uri.fromFile(testFile) val result = importEngine.import(uri, ImportOptions(bookTitle = "Corrupt.xopp")) assertTrue( "Corrupt file must fail the import, got: $result", result is AppResult.Error ) assertTrue( "Corrupt import must not leave notebooks behind", db.notebookDao().getAll().isEmpty() ) assertEquals("Corrupt import must not leave pages behind", 0, rowCount("page")) }</ID>
+    <ID>NoVarsInConstructor:EditorControlTower.kt$EditorControlTower$( private val scope: CoroutineScope, val page: PageView, private var history: History, private val viewModel: EditorViewModel, private val clipboardStore: ClipboardStore, )</ID>
+    <ID>NoVarsInConstructor:GestureState.kt$GestureState$( val scope: CoroutineScope, val initialPositions: MutableMap&lt;PointerId, Offset&gt; = mutableMapOf(), val lastPositions: MutableMap&lt;PointerId, Offset&gt; = mutableMapOf(), var initialTimestamp: Long = System.currentTimeMillis(), var lastTimestamp: Long = initialTimestamp, )</ID>
+    <ID>NoVarsInConstructor:Image.kt$Image$( @PrimaryKey val id: String = UUID.randomUUID().toString(), var x: Int = 0, var y: Int = 0, val height: Int, val width: Int, // use uri instead of bytearray //val bitmap: ByteArray, val uri: String? = null, @ColumnInfo(index = true) val pageId: String, val createdAt: Date = Date(), val updatedAt: Date = Date() )</ID>
+    <ID>NoVarsInConstructor:OpenGLRenderer.kt$OpenGLRenderer$( private var viewModel: DrawCanvas )</ID>
+    <ID>NoVarsInConstructor:PageView.kt$PageView$( val context: Context, val coroutineScope: CoroutineScope, val pageDataManager: PageDataManager, val initialPageId: String, var viewWidth: Int, var viewHeight: Int, val snackManager: SnackState, )</ID>
+    <ID>NoVarsInConstructor:Stroke.kt$Stroke$( @PrimaryKey val id: String = UUID.randomUUID().toString(), val size: Float, val pen: Pen, @ColumnInfo(defaultValue = "0xFF000000") val color: Int = 0xFF000000.toInt(), @ColumnInfo(defaultValue = "4096") val maxPressure: Int = 4096, // might be useful for synchronization between devices var top: Float, var bottom: Float, var left: Float, var right: Float, val points: List&lt;StrokePoint&gt;, @ColumnInfo(index = true) val pageId: String, val createdAt: Date = Date(), val updatedAt: Date = Date() )</ID>
+    <ID>NoVarsInConstructor:Stroke.kt$StrokePoint$( val x: Float, // with scroll var y: Float, // with scroll val pressure: Float? = null, // relative pressure values 1 to 4096, usually whole number val tiltX: Int? = null, // tilt values in degrees, -90 to 90 val tiltY: Int? = null, val dt: UShort? = null, // delta time in milliseconds, from first point in stroke, not used yet. @SerialName("timestamp") private val legacyTimestamp: Long? = null, @SerialName("size") private val legacySize: Float? = null, )</ID>
+    <ID>NoVarsInConstructor:pen.kt$PenSetting$( var strokeSize: Float, //TODO: Rename to strokeColor var color: Int, /** 1 is linear; values above 1 respond more quickly to light pressure. */ var pressureSensitivity: Float = 1f, /** Minimum normalized pressure/width retained even for a very light stroke. */ var minimumPressureRatio: Float = 0f, )</ID>
     <ID>TooGenericExceptionThrown:BackgroundSelector.kt$throw Exception("Unknown BackgroundType for selection $selectedBackgroundMode")</ID>
     <ID>TooGenericExceptionThrown:versionChecker.kt$throw Exception( "One of the version doesn't match simple semantic - comparison is impossible" )</ID>
     <ID>TooGenericExceptionThrown:versionChecker.kt$throw Exception("One of the version is null - comparison is impossible")</ID>
     <ID>UnusedParameter:DebugSettings.kt$goToWelcome: () -&gt; Unit</ID>
     <ID>UnusedParameter:NotableNavHost.kt$exportEngine: ExportEngine</ID>
-    <ID>UnusedParameter:Settings.kt$syncCallbacks: SyncSettingsCallbacks = SyncSettingsCallbacks()</ID>
-    <ID>UnusedParameter:Settings.kt$syncUiState: SyncSettingsUiState = SyncSettingsUiState()</ID>
     <ID>UnusedParameter:einkHelper.kt$view: View</ID>
     <ID>UnusedParameter:einkHelper.kt$view: View? = null</ID>
     <ID>UnusedPrivateMember:EncodingTest.kt$EncodingTest.CompressionStats$private fun reset()</ID>
@@ -195,6 +524,17 @@
     <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Truncated tiltY section")</ID>
     <ID>UseRequire:StrokePointConverter.kt$throw IllegalArgumentException("Unsupported version: $version")</ID>
     <ID>UseRequire:operations.kt$throw IllegalArgumentException("points list is empty")</ID>
+    <ID>WhenBranchSingleLineOrBraces:BackgroundType.kt$BackgroundType$AutoPdf -&gt; if (currentPage == null) { log.e("BackgroundType.resolveForExport: missing currentPage for AutoPdf") Native } else { Pdf(currentPage) }</ID>
+    <ID>WhenBranchSingleLineOrBraces:HomeView.kt$AppSettings.LibraryFolderDisplayMode.Grouped -&gt; stringResource(R.string.home_folders_grouped)</ID>
+    <ID>WhenBranchSingleLineOrBraces:HomeView.kt$AppSettings.LibraryFolderDisplayMode.Inline -&gt; stringResource(R.string.home_folders_inline)</ID>
+    <ID>WhenBranchSingleLineOrBraces:WebDAVClient.kt$WebDAVClient$!response.isSuccessful -&gt; AppResult.Error(DomainError.SyncError("GET failed: ${response.code}"))</ID>
+    <ID>WhenBranchSingleLineOrBraces:WebDAVClient.kt$WebDAVClient$response.code == HttpURLConnection.HTTP_NOT_FOUND -&gt; AppResult.Error(DomainError.NotFound(path))</ID>
+    <ID>WhenBranchSingleLineOrBraces:WebDAVClient.kt$WebDAVClient$response.code == HttpURLConnection.HTTP_PRECON_FAILED -&gt; AppResult.Error(DomainError.SyncConflict)</ID>
+    <ID>WhenBranchSingleLineOrBraces:handleInput.kt$else -&gt; throw IllegalArgumentException("startPoint.tiltX and endPoint.tiltX must either both be null or both non-null")</ID>
+    <ID>WhenBranchSingleLineOrBraces:handleInput.kt$else -&gt; throw IllegalArgumentException("startPoint.tiltY and endPoint.tiltY must either both be null or both non-null")</ID>
+    <ID>WhenBranchSingleLineOrBraces:handleInput.kt$startPoint.pressure != null &amp;&amp; endPoint.pressure != null -&gt; lerp(startPoint.pressure, endPoint.pressure, fraction)</ID>
+    <ID>WhenBranchSingleLineOrBraces:handleInput.kt$startPoint.tiltX != null &amp;&amp; endPoint.tiltX != null -&gt; lerp(startPoint.tiltX.toFloat(), endPoint.tiltX.toFloat(), fraction).toInt()</ID>
+    <ID>WhenBranchSingleLineOrBraces:handleInput.kt$startPoint.tiltY != null &amp;&amp; endPoint.tiltY != null -&gt; lerp(startPoint.tiltY.toFloat(), endPoint.tiltY.toFloat(), fraction).toInt()</ID>
     <ID>WildcardImport:ExampleInstrumentedTest.kt$import org.junit.Assert.*</ID>
     <ID>WildcardImport:Stroke.kt$import androidx.room.*</ID>
     <ID>WildcardImport:XoppImportTest.kt$import com.ethran.notable.data.db.*</ID>

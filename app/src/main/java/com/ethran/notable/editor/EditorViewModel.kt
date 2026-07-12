@@ -121,6 +121,7 @@ sealed class ToolbarAction {
     object Paste : ToolbarAction()
     object ResetView : ToolbarAction()
     object ClearAllStrokes : ToolbarAction()
+    object ClearClipboard : ToolbarAction()
 
     data class ImagePicked(val uri: Uri) : ToolbarAction()
     data class ExportPage(val format: ExportFormat) : ToolbarAction()
@@ -315,6 +316,17 @@ class EditorViewModel @Inject constructor(
             ToolbarAction.Paste -> sendCanvasCommand(CanvasCommand.Paste)
             ToolbarAction.ResetView -> sendCanvasCommand(CanvasCommand.ResetView)
             ToolbarAction.ClearAllStrokes -> sendCanvasCommand(CanvasCommand.ClearAllStrokes)
+            ToolbarAction.ClearClipboard -> {
+                val complete = ClipboardStore.clear(context)
+                snackDispatcher.showOrUpdateSnack(
+                    SnackConf(
+                        text = context.getString(
+                            if (complete) R.string.clipboard_cleared
+                            else R.string.clipboard_clear_incomplete
+                        )
+                    )
+                )
+            }
 
             ToolbarAction.NavigateToLibrary -> handleNavigateToLibrary()
             ToolbarAction.NavigateToBugReport -> sendUiEvent(EditorUiEvent.NavigateToBugReport)

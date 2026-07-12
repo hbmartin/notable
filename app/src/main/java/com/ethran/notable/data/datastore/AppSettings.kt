@@ -69,6 +69,7 @@ data class AppSettings(
     val renameOnCreate: Boolean = true,
     // Library (home view) notebook ordering.
     val librarySortOrder: LibrarySortOrder = LibrarySortOrder.RecentlyCreated,
+    val libraryFolderDisplayMode: LibraryFolderDisplayMode = LibraryFolderDisplayMode.Grouped,
     // Turn pages in the editor with the volume / page-turn hardware buttons.
     val volumeButtonPageTurn: Boolean = false,
 
@@ -106,6 +107,18 @@ data class AppSettings(
 
     // RecentlyCreated matches the historical order (insertion order reversed).
     enum class LibrarySortOrder {
-        RecentlyCreated, RecentlyModified, Name
+        RecentlyCreated, RecentlyModified, Name;
+
+        val queryKey: String
+            get() = when (this) {
+                RecentlyCreated -> "created"
+                RecentlyModified -> "modified"
+                Name -> "name"
+            }
+    }
+
+    enum class LibraryFolderDisplayMode {
+        Grouped,
+        Inline,
     }
 }

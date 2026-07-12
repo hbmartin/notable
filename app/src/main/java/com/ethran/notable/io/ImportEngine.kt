@@ -15,7 +15,6 @@ import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
-import com.ethran.notable.utils.plus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.shipbook.shipbooksdk.ShipBook
 import javax.inject.Inject
@@ -69,12 +68,30 @@ class ImportEngine @Inject constructor(
         uri: Uri,
         options: ImportOptions = ImportOptions()
     ): AppResult<List<String>, DomainError> {
-        val mimeType = context.contentResolver.getType(uri)
-        if (options.fileType != null && mimeType != options.fileType)
-            return AppResult.Error(DomainError.UnexpectedState("File type mismatch. Expected: ${options.fileType}, Actual: $mimeType"))
+        val classification = DocumentKindDetector.detect(context, uri)
+        if (!classification.isSupported) {
+            return AppResult.Error(
+                DomainError.UnexpectedState(
+                    classification.error ?: "The selected file is not a supported document."
+                )
+            )
+        }
+        if (options.fileType != null) {
+            val expected = DocumentKindDetector.kindFromMetadata(options.fileType, "")
+            if (expected != DocumentKind.UNKNOWN && expected != classification.kind) {
+                return AppResult.Error(
+                    DomainError.UnexpectedState(
+                        "File type mismatch. Expected $expected, detected ${classification.kind}."
+                    )
+                )
+            }
+        }
 
-        val bookTitle = sanitizeNotebookName(options.bookTitle ?: getFileName(uri))
-        log.d("Starting import for uri: $uri, mimeType: $mimeType, fileName: $bookTitle")
+        val bookTitle = sanitizeNotebookName(options.bookTitle ?: classification.displayName)
+        log.d(
+            "Starting import for uri: $uri, detected=${classification.kind}, " +
+                    "mimeType=${classification.mimeType}, fileName=$bookTitle"
+        )
 
         // strip extension if present in bookTitle (from options or getFileName)
         val finalTitle = if (bookTitle.endsWith(".xopp", ignoreCase = true)) {
@@ -89,14 +106,12 @@ class ImportEngine @Inject constructor(
             bookTitle = finalTitle,
         )
 
-        return when {
-            XoppFile.isXoppFile(mimeType, bookTitle) -> handleImportXopp(uri, optionsWithTitle)
-            isPdfFile(mimeType, bookTitle) -> handleImportPDF(uri, optionsWithTitle)
-            else -> {
-                val errorMessage = "Unsupported file type: $mimeType"
-                log.w(errorMessage)
-                AppResult.Error(DomainError.UnexpectedState(errorMessage))
-            }
+        return when (classification.kind) {
+            DocumentKind.XOPP -> handleImportXopp(uri, optionsWithTitle)
+            DocumentKind.PDF -> handleImportPDF(uri, optionsWithTitle)
+            DocumentKind.UNKNOWN -> AppResult.Error(
+                DomainError.UnexpectedState("Unsupported document signature")
+            )
         }
     }
 
@@ -139,7 +154,7 @@ class ImportEngine @Inject constructor(
                     is AppResult.Error -> throw ImportFailedException(target.error)
                 }
 
-                xoppFile.importBook(
+                val pageCount = xoppFile.importBook(
                     uri = uri,
                     onPageCreated = { page ->
                         // TODO: Handle conflicts with existing pages.
@@ -154,6 +169,11 @@ class ImportEngine @Inject constructor(
                         imageRepo.create(images)
                     }
                 )
+                if (pageCount == 0) {
+                    throw ImportFailedException(
+                        DomainError.UnexpectedState("The XOPP notebook contains no pages.")
+                    )
+                }
             }
             AppResult.Success(importedPageIds)
         } catch (e: ImportFailedException) {
@@ -181,57 +201,60 @@ class ImportEngine @Inject constructor(
         val fileToSave = handleFileSaving(context, uri, options)
             ?: return AppResult.Error(DomainError.UnexpectedState("Couldn't determine file path. Does the app have permission to read external storage?"))
 
+        if (DocumentKindDetector.detectFile(fileToSave, "application/pdf").kind != DocumentKind.PDF) {
+            if (!options.linkToExternalFile) fileToSave.delete()
+            return AppResult.Error(
+                DomainError.UnexpectedState("The imported file does not have a valid PDF signature.")
+            )
+        }
+        val pageCount = getPdfPageCount(fileToSave.toString())
+        if (pageCount <= 0) {
+            if (!options.linkToExternalFile) fileToSave.delete()
+            return AppResult.Error(
+                DomainError.UnexpectedState("The PDF contains no readable pages.")
+            )
+        }
+
         val filePath = fileToSave.toString()
 
-        val book = when (val target = resolveTargetBook(options) {
-            Notebook(
-                title = options.bookTitle,
-                parentFolderId = options.folderId,
-                defaultBackground = filePath,
-                defaultBackgroundType = BackgroundType.AutoPdf.key
-            )
-        }) {
-            is AppResult.Success -> target.data
-            is AppResult.Error -> return AppResult.Error(target.error)
-        }
-
         val importedPageIds = mutableListOf<String>()
-        var persistentError: DomainError? = null
+        return try {
+            database.withTransaction {
+                val book = when (val target = resolveTargetBook(options) {
+                    Notebook(
+                        title = options.bookTitle,
+                        parentFolderId = options.folderId,
+                        defaultBackground = filePath,
+                        defaultBackgroundType = BackgroundType.AutoPdf.key
+                    )
+                }) {
+                    is AppResult.Success -> target.data
+                    is AppResult.Error -> throw ImportFailedException(target.error)
+                }
 
-        importPdf(fileToSave, options) { pageData ->
-            try {
-                pageRepo.create(pageData.page.copy(notebookId = book.id))
-                if (pageData.strokes.isNotEmpty())
-                    strokeRepo.create(pageData.strokes)
-                if (pageData.images.isNotEmpty())
-                    imageRepo.create(pageData.images)
-                bookRepo.addPage(book.id, pageData.page.id)
-                importedPageIds.add(pageData.page.id)
-            } catch (e: Exception) {
-                val errMessage = "failed import book  ${e.message}"
-                appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))
-                val error = DomainError.DatabaseError(errMessage)
-                persistentError = persistentError?.let { it + error } ?: error
+                importPdf(fileToSave, pageCount, options) { pageData ->
+                    pageRepo.create(pageData.page.copy(notebookId = book.id))
+                    if (pageData.strokes.isNotEmpty())
+                        strokeRepo.create(pageData.strokes)
+                    if (pageData.images.isNotEmpty())
+                        imageRepo.create(pageData.images)
+                    bookRepo.addPage(book.id, pageData.page.id)
+                    importedPageIds.add(pageData.page.id)
+                }
             }
-        }
-
-        return persistentError?.let { AppResult.Error(it) } ?: AppResult.Success(importedPageIds)
-    }
-
-    /**
-     * Extracts the book title from a file URI.
-     */
-    private fun getFileName(uri: Uri): String {
-        val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Imported Book"
-        return if (fileName.endsWith(".xopp", ignoreCase = true)) {
-            fileName.removeSuffix(".xopp")
-        } else if (fileName.endsWith(".pdf", ignoreCase = true)) {
-            fileName.removeSuffix(".pdf")
-        } else {
-            fileName
+            AppResult.Success(importedPageIds)
+        } catch (e: ImportFailedException) {
+            if (!options.linkToExternalFile) fileToSave.delete()
+            AppResult.Error(e.error)
+        } catch (e: Exception) {
+            if (!options.linkToExternalFile) fileToSave.delete()
+            val error = DomainError.DatabaseError(
+                "Failed to import PDF: ${e.message ?: e.javaClass.simpleName}"
+            )
+            appEventBus.emit(AppEvent.LogMessage("importBook", error.userMessage))
+            AppResult.Error(error)
         }
     }
-
 
     private fun sanitizeNotebookName(raw: String, maxLen: Int = 100): String {
         var name = raw

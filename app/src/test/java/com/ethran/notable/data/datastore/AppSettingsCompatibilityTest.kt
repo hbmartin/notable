@@ -16,6 +16,10 @@ class AppSettingsCompatibilityTest {
         assertTrue(settings.adaptiveEinkRefresh)
         assertFalse(settings.autoSyncEinkBuffer)
         assertFalse(settings.activePenHaptics)
+        assertEquals(
+            AppSettings.LibraryFolderDisplayMode.Grouped,
+            settings.libraryFolderDisplayMode,
+        )
     }
 
     @Test

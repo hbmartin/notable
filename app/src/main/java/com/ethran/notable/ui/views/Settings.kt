@@ -1,10 +1,10 @@
 package com.ethran.notable.ui.views
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.util.Log
+import com.ethran.notable.utils.launchIntentSafely
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -343,10 +343,7 @@ fun UpdateActions(
 
 fun openInBrowser(context: Context, uriString: String, onError: (String) -> Unit) {
     val urlIntent = Intent(Intent.ACTION_VIEW, uriString.toUri())
-    try {
-        context.startActivity(urlIntent)
-    } catch (_: ActivityNotFoundException) {
-        val message = "No application can handle this request. Please install a web browser."
+    context.launchIntentSafely(urlIntent) { message ->
         Log.w("openInBrowser", message)
         onError(message)
     }

@@ -50,6 +50,22 @@ interface NotebookDao {
     @Query("SELECT * FROM notebook WHERE parentFolderId is :folderId")
     fun getAllInFolder(folderId: String? = null): LiveData<List<Notebook>>
 
+    @Query("""
+        SELECT * FROM notebook
+        WHERE parentFolderId IS :folderId
+          AND (:searchQuery = '' OR title LIKE '%' || :searchQuery || '%' COLLATE NOCASE)
+        ORDER BY
+          CASE WHEN :sortOrder = 'name' THEN title END COLLATE NOCASE ASC,
+          CASE WHEN :sortOrder = 'created' THEN createdAt END DESC,
+          CASE WHEN :sortOrder = 'modified' THEN updatedAt END DESC,
+          id ASC
+    """)
+    fun observeLibraryNotebooks(
+        folderId: String?,
+        searchQuery: String,
+        sortOrder: String,
+    ): LiveData<List<Notebook>>
+
     @Query("SELECT * FROM notebook")
     fun getAll(): List<Notebook>
 
@@ -130,6 +146,13 @@ class BookRepository @Inject constructor(
     fun getAllInFolder(folderId: String? = null): LiveData<List<Notebook>> {
         return notebookDao.getAllInFolder(folderId)
     }
+
+    fun observeLibraryNotebooks(
+        folderId: String?,
+        searchQuery: String,
+        sortOrder: String,
+    ): LiveData<List<Notebook>> =
+        notebookDao.observeLibraryNotebooks(folderId, searchQuery, sortOrder)
 
     suspend fun getById(notebookId: String): Notebook? {
         return notebookDao.getById(notebookId)
