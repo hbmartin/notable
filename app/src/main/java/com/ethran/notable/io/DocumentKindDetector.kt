@@ -164,14 +164,9 @@ object DocumentKindDetector {
         if (needle.isEmpty() || size < needle.size) return -1
         val lastStart = minOf(size - needle.size, searchLimit - needle.size)
         for (start in 0..lastStart) {
-            var matches = true
-            for (offset in needle.indices) {
-                if (this[start + offset] != needle[offset]) {
-                    matches = false
-                    break
-                }
+            if (needle.indices.all { offset -> this[start + offset] == needle[offset] }) {
+                return start
             }
-            if (matches) return start
         }
         return -1
     }

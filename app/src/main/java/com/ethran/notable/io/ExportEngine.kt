@@ -530,15 +530,11 @@ class ExportEngine @Inject constructor(
                     val target = if (!overwrite && requested.exists()) {
                         uniqueSibling(parent, displayName)
                     } else requested
-                    val temp = File(parent, ".${target.name}.notable-tmp-${UUID.randomUUID()}")
-                    prepared.inputStream().use { input ->
-                        FileOutputStream(temp).use { output ->
+                    AtomicFileStore.write(target) { output ->
+                        prepared.inputStream().use { input ->
                             input.copyTo(output)
-                            output.flush()
-                            output.fd.sync()
                         }
                     }
-                    AtomicFileStore.commitPrepared(temp, target)
                 }
 
                 else -> throw IOException("Unsupported Uri scheme: ${folderUri.scheme}")
@@ -798,13 +794,9 @@ class ExportEngine @Inject constructor(
         val dot = displayName.lastIndexOf('.')
         val base = if (dot > 0) displayName.substring(0, dot) else displayName
         val extension = if (dot > 0) displayName.substring(dot) else ""
-        var counter = 1
-        var candidate = "$base ($counter)$extension"
-        while (candidate in existingNames) {
-            counter++
-            candidate = "$base ($counter)$extension"
-        }
-        return candidate
+        return generateSequence(1) { it + 1 }
+            .map { counter -> "$base ($counter)$extension" }
+            .first { it !in existingNames }
     }
 
 

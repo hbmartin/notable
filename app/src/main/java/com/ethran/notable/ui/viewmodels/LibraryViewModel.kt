@@ -12,6 +12,7 @@ import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.Page
+import com.ethran.notable.data.db.escapeSqlLike
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.io.ExportEngine
 import com.ethran.notable.io.ImportEngine
@@ -98,7 +99,7 @@ class LibraryViewModel @Inject constructor(
     private val _breadcrumbFolders = MutableStateFlow<List<Folder>>(emptyList())
 
     private val _query = combine(_folderId, _searchQuery, _sortOrder) { folderId, search, sort ->
-        LibraryQuery(folderId, search.trim(), sort)
+        LibraryQuery(folderId, escapeSqlLike(search.trim()), sort)
     }
 
     // Room performs filtering and ordering before emitting, avoiding repeated full-list work in UI.

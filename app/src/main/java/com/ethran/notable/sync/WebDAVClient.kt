@@ -17,8 +17,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.io.StringReader
 import java.net.HttpURLConnection
 import java.text.SimpleDateFormat
@@ -60,6 +62,18 @@ data class DownloadedFile(
  * Result of a connection test, including optional clock skew information.
  */
 data class ConnectionTestResult(val clockSkewMs: Long? = null)
+
+internal fun readBytesWithLimit(input: InputStream, maxBytes: Int): ByteArray? {
+    require(maxBytes >= 0) { "maxBytes must not be negative" }
+    val output = ByteArrayOutputStream(minOf(DEFAULT_BUFFER_SIZE, maxBytes))
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) return output.toByteArray()
+        if (read > maxBytes - output.size()) return null
+        output.write(buffer, 0, read)
+    }
+}
 
 /**
  * WebDAV client built on OkHttp for Notable sync operations.
@@ -270,8 +284,10 @@ class WebDAVClient(
                                 DomainError.SyncError("Downloaded metadata exceeds the safety limit")
                             )
                         }
-                        val bytes = body.bytes()
-                        if (bytes.size > MAX_METADATA_BYTES) {
+                        val bytes = body.byteStream().use { input ->
+                            readBytesWithLimit(input, MAX_METADATA_BYTES)
+                        }
+                        if (bytes == null) {
                             return@use AppResult.Error(
                                 DomainError.SyncError("Downloaded metadata exceeds the safety limit")
                             )

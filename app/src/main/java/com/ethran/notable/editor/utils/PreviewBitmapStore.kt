@@ -187,8 +187,6 @@ fun loadHQPagePreview(
     requireExactMatch: Boolean,
 ): Bitmap? {
     val dir = ensurePreviewsFullFolder(context)
-    runCatching { AtomicFileStore.recoverStaleFiles(dir) }
-        .onFailure { log.w("Could not recover stale preview files: ${it.message}") }
 
     if (requireExactMatch) {
         if (!checkZoomAndScroll(scroll, zoom)) return null

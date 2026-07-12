@@ -321,7 +321,7 @@ class EditorViewModel @Inject constructor(
             ToolbarAction.Paste -> sendCanvasCommand(CanvasCommand.Paste)
             ToolbarAction.ResetView -> sendCanvasCommand(CanvasCommand.ResetView)
             ToolbarAction.ClearAllStrokes -> sendCanvasCommand(CanvasCommand.ClearAllStrokes)
-            ToolbarAction.ClearClipboard -> {
+            ToolbarAction.ClearClipboard -> viewModelScope.launch(Dispatchers.IO) {
                 val complete = ClipboardStore.clear(context)
                 snackDispatcher.showOrUpdateSnack(
                     SnackConf(

@@ -67,7 +67,7 @@ class QuickNavViewModel(
             val favorites = currentSettings.quickNavPages
             val isFavorite = favorites.contains(currentPageId)
 
-            val favoritePagesDb = appRepository.pageRepository.getByIds(favorites)
+            val favoritePagesDb = sortFavorites(appRepository.pageRepository.getByIds(favorites))
 
             _uiState.update { state ->
                 state.copy(
@@ -128,10 +128,15 @@ class QuickNavViewModel(
             _uiState.update { it.copy(isCurrentPageFavorite = !isFav) }
 
             // Re-fetch the rich page objects for the ShowPagesRow
-            val updatedFavoritePages = appRepository.pageRepository.getByIds(newFavorites)
+            val updatedFavoritePages =
+                sortFavorites(appRepository.pageRepository.getByIds(newFavorites))
             _uiState.update { it.copy(favoritePages = updatedFavoritePages) }
         }
     }
+
+    // getByIds returns pages in storage order; show the most recently edited favorites first.
+    private fun sortFavorites(pages: List<Page>): List<Page> =
+        pages.sortedByDescending { it.updatedAt }
 
     // --- Scrubber Actions ---
 

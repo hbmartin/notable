@@ -139,13 +139,9 @@ private fun uniqueDestination(directory: File, displayName: String): File {
     val dot = displayName.lastIndexOf('.')
     val base = if (dot > 0) displayName.substring(0, dot) else displayName
     val extension = if (dot > 0) displayName.substring(dot) else ""
-    var counter = 1
-    var candidate = File(directory, "$base ($counter)$extension")
-    while (candidate.exists()) {
-        counter++
-        candidate = File(directory, "$base ($counter)$extension")
-    }
-    return candidate
+    return generateSequence(1) { it + 1 }
+        .map { counter -> File(directory, "$base ($counter)$extension") }
+        .first { !it.exists() }
 }
 
 fun getFileNameFromUri(
