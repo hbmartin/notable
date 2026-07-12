@@ -12,6 +12,8 @@ import com.onyx.android.sdk.device.Device
 import com.onyx.android.sdk.pen.style.StrokeStyle
 import com.onyx.android.sdk.utils.DeviceInfoUtil
 import com.ethran.notable.editor.utils.DeviceCompat
+import com.ethran.notable.editor.utils.OnyxCapabilities
+import com.ethran.notable.editor.utils.redactDeviceIdentifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +39,9 @@ data class DeviceSnapshot(
     val resolutionY: Int? = null,
     val isOnyxDevice: Boolean? = null,
     val isColorDevice: Boolean? = null,
+    val boardPlatform: String? = null,
+    val firmwareVersion: String? = null,
+    val firmwareBuildId: Int? = null,
 
     //classes
     val actualDeviceClass: String? = null,
@@ -105,6 +110,7 @@ data class DeviceSnapshot(
     val encryptedDeviceId: String?,
 
     // Wireless charging
+    val supportChargingControl: Boolean? = null,
     val supportWirelessCharging: Boolean?,
     val wirelessChargingBattery: Int?,
     val wirelessChargingState: Int?,
@@ -207,7 +213,9 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
         val activePenEnabled = safeNullable("getActivePenEnable") { base.getActivePenEnable() }
         val activePenBattery =
             safeNullable("getActivePenBatteryLevel") { base.getActivePenBatteryLevel() }
-        val activePenMac = safeNullable("getActivePenMacAddress") { base.getActivePenMacAddress() }
+        val activePenMac = redactDeviceIdentifier(
+            safeNullable("getActivePenMacAddress") { base.getActivePenMacAddress() }
+        )
         val penUIVisibilityEnabled =
             safeNullable("isPenUIVisibilityEnable") { base.isPenUIVisibilityEnable() }
         val penHapticEnabled = safeNullable("isPenHapticEnabled") { base.isPenHapticEnabled() }
@@ -262,10 +270,15 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
         val hasAudio = safeNullable("hasAudio") { base.hasAudio(context) }
         val hasWifi = safeNullable("hasWifi") { base.hasWifi(context) }
         val hasBt = safeNullable("hasBluetooth") { base.hasBluetooth(context) }
-        val fixedWifiMac =
+        val fixedWifiMac = redactDeviceIdentifier(
             safeNullable("getFixedWifiMacAddress") { base.getFixedWifiMacAddress(context) }
-        val btAddr = safeNullable("getBluetoothAddress") { base.getBluetoothAddress() }
-        val encId = safeNullable("getEncryptedDeviceID") { base.getEncryptedDeviceID() }
+        )
+        val btAddr = redactDeviceIdentifier(
+            safeNullable("getBluetoothAddress") { base.getBluetoothAddress() }
+        )
+        val encId = redactDeviceIdentifier(
+            safeNullable("getEncryptedDeviceID") { base.getEncryptedDeviceID() }
+        )
 
         // Wireless charging
         val supportWireless =
@@ -301,7 +314,7 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
             safeNullable("isUSBStorage") { storageRoot?.path?.let { base.isUSBStorage(it) } }
 
         // Fonts / Misc
-        val cpuId = safeNullable("getCpuId") { base.getCpuId() }
+        val cpuId = redactDeviceIdentifier(safeNullable("getCpuId") { base.getCpuId() })
         val externalSD = safeNullable("supportExternalSD") { base.supportExternalSD(context) }
         val fontHotReload = safeNullable("supportFontHotReload") { base.supportFontHotReload() }
         val fontMap = safeNullable("loadSystemFamilyPathMap") { base.loadSystemFamilyPathMap() }
@@ -311,7 +324,9 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
         val kernelInfo = safeNullable("getDeviceKernelInfo") { DeviceInfoUtil.getDeviceKernelInfo() }
         val emtpInfo = safeNullable("getEMTPInfo") { DeviceInfoUtil.getEMTPInfo() }
         val vcomInfo = safeNullable("getVComInfo") { DeviceInfoUtil.getVComInfo(context) }
-        val cpuSerial = safeNullable("loadCPUSerial") { DeviceInfoUtil.loadCPUSerial() }
+        val cpuSerial = redactDeviceIdentifier(
+            safeNullable("loadCPUSerial") { DeviceInfoUtil.loadCPUSerial() }
+        )
         val resolution = safeNullable("getScreenResolution") { DeviceInfoUtil.getScreenResolution(context) }
         val isOnyx = safeNullable("DeviceCompat.isOnyxDevice") { DeviceCompat.isOnyxDevice }
         val isColor = safeNullable("DeviceCompat.isColorDevice") { DeviceCompat.isColorDevice() }
@@ -326,6 +341,9 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
             resolutionY = resolution?.y,
             isOnyxDevice = isOnyx,
             isColorDevice = isColor,
+            boardPlatform = OnyxCapabilities.current.boardPlatform,
+            firmwareVersion = OnyxCapabilities.current.firmwareVersion,
+            firmwareBuildId = OnyxCapabilities.current.firmwareBuildId,
             actualDeviceClass = actualDeviceClass,
             deviceClassHierarchy = deviceClassHierarchy,
             epdMode = epdMode,
@@ -384,6 +402,7 @@ class SystemInformationViewModel @Inject constructor() : ViewModel() {
             bluetoothAddress = btAddr,
             encryptedDeviceId = encId,
 
+            supportChargingControl = OnyxCapabilities.current.supportsChargingControl,
             supportWirelessCharging = supportWireless,
             wirelessChargingBattery = wirelessBattery,
             wirelessChargingState = wirelessState,

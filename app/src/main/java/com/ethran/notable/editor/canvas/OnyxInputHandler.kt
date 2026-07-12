@@ -6,6 +6,8 @@ import android.graphics.RectF
 import android.util.Log
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toRect
+import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.data.db.StrokePoint
 import com.ethran.notable.editor.EditorViewModel
 import com.ethran.notable.editor.state.Mode
 import com.ethran.notable.editor.PageView
@@ -27,7 +29,10 @@ import com.ethran.notable.editor.utils.PenSetting
 import com.ethran.notable.editor.utils.penToStroke
 import com.ethran.notable.editor.utils.setupSurface
 import com.ethran.notable.editor.utils.transformToLine
+import com.ethran.notable.editor.utils.withPressureSettings
+import com.ethran.notable.editor.utils.OnyxCapabilities
 import com.ethran.notable.ui.convertDpToPixel
+import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.data.note.TouchPoint
 import com.onyx.android.sdk.device.Device
 import com.onyx.android.sdk.extension.isNullOrEmpty
@@ -143,6 +148,11 @@ class OnyxInputHandler(
 
         override fun onPenUpRefresh(refreshRect: RectF?) {
             super.onPenUpRefresh(refreshRect)
+            if (!GlobalAppSettings.current.autoSyncEinkBuffer || refreshRect == null) return
+            val dirty = Rect()
+            refreshRect.roundOut(dirty)
+            runCatching { EpdController.handwritingRepaint(drawCanvas, dirty) }
+                .onFailure { log.w("Targeted handwriting repaint failed: ${it.message}") }
         }
 
         override fun onPenActive(point: TouchPoint?) {
@@ -234,6 +244,28 @@ class OnyxInputHandler(
             )
         }
     }
+
+    private fun configuredStrokeEndpoints(points: List<TouchPoint>): Pair<StrokePoint, StrokePoint> {
+        val (rawStart, rawEnd) = getModifiedStrokeEndpoints(
+            points,
+            page.scroll,
+            page.zoomLevel.value,
+        )
+        val setting = currentPenSetting.takeIf { toolbarState.pen.supportsPressure }
+            ?: return rawStart to rawEnd
+        val maxPressure = OnyxCapabilities.current.maxTouchPressure
+        return rawStart.withPressureSettings(setting, maxPressure) to
+                rawEnd.withPressureSettings(setting, maxPressure)
+    }
+
+    private fun configuredStrokePoints(points: List<TouchPoint>): List<StrokePoint> = copyInput(
+        touchPoints = points,
+        scroll = page.scroll,
+        scale = page.zoomLevel.value,
+        pressureSetting = currentPenSetting.takeIf { toolbarState.pen.supportsPressure },
+        maxPressure = OnyxCapabilities.current.maxTouchPressure,
+    )
+
     private fun onRawDrawingList(plist: TouchPointList) {
         if (touchHelper == null) return
         val currentLastStrokeEndTime = lastStrokeEndTime
@@ -271,11 +303,7 @@ class OnyxInputHandler(
                         log.d("lock obtained in ${lock - startTime} ms")
 
 
-                        val (startPoint, endPoint) = getModifiedStrokeEndpoints(
-                            plist.points,
-                            page.scroll,
-                            page.zoomLevel.value
-                        )
+                        val (startPoint, endPoint) = configuredStrokeEndpoints(plist.points)
                         val linePoints = transformToLine(startPoint, endPoint)
 
                         val penSetting = currentPenSetting
@@ -309,8 +337,7 @@ class OnyxInputHandler(
                         val lock = System.currentTimeMillis()
                         log.d("lock obtained in ${lock - startTime} ms")
 
-                        val scaledPoints =
-                            copyInput(plist.points, page.scroll, page.zoomLevel.value)
+                        val scaledPoints = configuredStrokePoints(plist.points)
                         val firstPointTime = plist.points.first().timestamp
                         val erasedByScribbleDirtyRect = handleScribbleToErase(
                             page,

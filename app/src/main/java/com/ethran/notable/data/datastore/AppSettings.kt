@@ -47,6 +47,13 @@ data class AppSettings(
     val continuousZoom: Boolean = false,
     val continuousStrokeSlider: Boolean = false,
     val monochromeMode: Boolean = false,
+    val displayProfile: DisplayProfile = DisplayProfile.System,
+    val adaptiveEinkRefresh: Boolean = true,
+    val autoSyncEinkBuffer: Boolean = false,
+    val activePenHaptics: Boolean = false,
+    val activePenHapticStrength: Int = 1,
+    val activePenHapticType: Int = 0,
+    val activePenLowBatteryWarning: Boolean = true,
     val paginatePdf: Boolean = true,
     val visualizePdfPagination: Boolean = false,
 
@@ -91,6 +98,10 @@ data class AppSettings(
 
     enum class Position {
         Top, Bottom, // Left,Right,
+    }
+
+    enum class DisplayProfile {
+        System, Document, ColorInk, Grayscale, Night
     }
 
     // RecentlyCreated matches the historical order (insertion order reversed).

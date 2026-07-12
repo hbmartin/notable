@@ -11,6 +11,7 @@ import com.ethran.notable.editor.PageView
 import com.ethran.notable.editor.drawing.selectPaint
 import com.ethran.notable.editor.state.Mode
 import com.ethran.notable.editor.utils.DeviceCompat
+import com.ethran.notable.editor.utils.OnyxDisplayController
 import com.ethran.notable.editor.utils.pointsToPath
 import com.ethran.notable.editor.utils.enableNativeEraser
 import com.ethran.notable.editor.utils.refreshScreenRegion
@@ -169,6 +170,7 @@ class CanvasRefreshManager(
                     if (canvas != null) {
                         log.d("drawCanvasToView: page=${page.currentPageId} bitmap=${page.windowedBitmap.hashCode()}")
                         drawCanvas.holder.unlockCanvasAndPost(canvas)
+                        if (dirtyRect != null) OnyxDisplayController.recordPartialRefresh()
                     }
                     log.v("Canvas refreshed")
                 } catch (e: IllegalStateException) {

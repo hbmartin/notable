@@ -11,6 +11,7 @@ import android.os.StatFs
 import com.ethran.notable.BuildConfig
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.getDbDir
+import com.ethran.notable.editor.utils.OnyxCapabilities
 import com.onyx.android.sdk.device.Device
 import java.io.BufferedReader
 import java.io.File
@@ -215,10 +216,12 @@ class BugReportGenerator(
         val threadCount = Thread.activeCount()
         val buildType = getSignature(context)
         val deviceName = Device.currentDevice().javaClass.name
+        val capabilities = OnyxCapabilities.current
 
         return """
         |• Device: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE},  SDK ${Build.VERSION.SDK_INT})
         |• Device Name: $deviceName
+        |• BOOX Platform: ${capabilities.boardPlatform ?: "unknown"} | Firmware: ${capabilities.firmwareVersion ?: "unknown"} (${capabilities.firmwareBuildId ?: "unknown"})
         |• System: $totalMemory RAM | $totalStorage storage | Battery: $batteryPct% | Threads: $threadCount
         |• Memory: ${pageMemoryMB}MB used by pages | $appUsed used by app | $maxHeap max
         |• Storage: $dbUsed used by app | $freeSpace free

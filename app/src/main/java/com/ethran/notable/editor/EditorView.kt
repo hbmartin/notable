@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.state.ClipboardStore
 import com.ethran.notable.editor.ui.EditorSurface
@@ -23,6 +24,7 @@ import com.ethran.notable.editor.ui.HorizontalScrollIndicator
 import com.ethran.notable.editor.ui.ScrollIndicator
 import com.ethran.notable.editor.ui.SelectedBitmap
 import com.ethran.notable.editor.ui.toolbar.PositionedToolbar
+import com.ethran.notable.editor.utils.OnyxDisplayController
 import com.ethran.notable.gestures.EditorGestureReceiver
 import com.ethran.notable.navigation.NavigationDestination
 import com.ethran.notable.ui.LocalSnackContext
@@ -30,6 +32,7 @@ import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.convertDpToPixel
 import com.ethran.notable.ui.theme.InkaTheme
 import io.shipbook.shipbooksdk.ShipBook
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
@@ -71,6 +74,19 @@ fun EditorView(
     val context = LocalContext.current
     val snackManager = LocalSnackContext.current
     val scope = rememberCoroutineScope()
+    val displayProfile = GlobalAppSettings.current.displayProfile
+
+    DisposableEffect(displayProfile) {
+        OnyxDisplayController.applyProfile(displayProfile)
+        onDispose { OnyxDisplayController.clearOwnedProfile() }
+    }
+
+    LaunchedEffect(viewModel) {
+        while (true) {
+            viewModel.refreshActivePenStatus()
+            delay(60_000)
+        }
+    }
 
     // Single point of entry for loading book data based on the pageId from Navigation
     // Should not be used for regular page switching

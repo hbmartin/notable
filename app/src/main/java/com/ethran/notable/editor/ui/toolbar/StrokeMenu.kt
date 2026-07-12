@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -38,6 +40,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.data.datastore.BUTTON_SIZE
 import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.R
 import com.ethran.notable.editor.utils.PenSetting
 import com.ethran.notable.ui.convertDpToPixel
 import kotlin.math.roundToInt
@@ -49,6 +52,7 @@ fun StrokeMenu(
     onChange: (setting: PenSetting) -> Unit,
     onClose: () -> Unit,
     sizeOptions: List<Pair<String, Float>>,
+    supportsPressure: Boolean = false,
     colorOptions: List<Color>,
 ) {
     val context = LocalContext.current
@@ -123,6 +127,11 @@ fun StrokeMenu(
                     heightOfPicker = heightOfPicker
                 )
             }
+
+            if (supportsPressure) {
+                Spacer(Modifier.height(6.dp))
+                PressureControls(value = value, onChange = onChange)
+            }
         }
 
 
@@ -152,7 +161,10 @@ fun ColumnScope.StrokeSizePicker(
             onValueChange = { newSize ->
                 onChange(
                     PenSetting(
-                        strokeSize = newSize, color = value.color
+                        strokeSize = newSize,
+                        color = value.color,
+                        pressureSensitivity = value.pressureSensitivity,
+                        minimumPressureRatio = value.minimumPressureRatio,
                     )
                 )
             },
@@ -195,8 +207,8 @@ private fun ColorPicker(
                     )
                     .clickable {
                         onChange(
-                            PenSetting(
-                                strokeSize = value.strokeSize, color = android.graphics.Color.argb(
+                            value.copy(
+                                color = android.graphics.Color.argb(
                                     (color.alpha * 255).toInt(),
                                     (color.red * 255).toInt(),
                                     (color.green * 255).toInt(),
@@ -234,13 +246,41 @@ private fun ThicknessPicker(
         sizeOptions.forEach {
             ToolbarButton(
                 text = it.first, isSelected = value.strokeSize == it.second, onSelect = {
-                    onChange(
-                        PenSetting(
-                            strokeSize = it.second, color = value.color
-                        )
-                    )
+                    onChange(value.copy(strokeSize = it.second))
                 }, modifier = Modifier
             )
+        }
+    }
+}
+
+@Composable
+private fun PressureControls(value: PenSetting, onChange: (PenSetting) -> Unit) {
+    Column(
+        modifier = Modifier
+            .background(Color.White)
+            .border(1.dp, Color.Black)
+            .padding(6.dp)
+    ) {
+        Text(stringResource(R.string.pen_pressure_sensitivity), color = Color.Black)
+        Row(horizontalArrangement = Arrangement.Center) {
+            listOf("Soft" to 0.65f, "Normal" to 1f, "Firm" to 1.5f).forEach { (label, amount) ->
+                ToolbarButton(
+                    text = label,
+                    isSelected = value.pressureSensitivity == amount,
+                    onSelect = { onChange(value.copy(pressureSensitivity = amount)) },
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.pen_minimum_width), color = Color.Black)
+        Row(horizontalArrangement = Arrangement.Center) {
+            listOf("0%" to 0f, "10%" to 0.1f, "25%" to 0.25f).forEach { (label, amount) ->
+                ToolbarButton(
+                    text = label,
+                    isSelected = value.minimumPressureRatio == amount,
+                    onSelect = { onChange(value.copy(minimumPressureRatio = amount)) },
+                )
+            }
         }
     }
 }

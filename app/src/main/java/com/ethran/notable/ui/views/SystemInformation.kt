@@ -120,6 +120,9 @@ fun SystemInformationContent(
                     InfoRow("VCom Info", info.vcomInfo)
                     InfoRow("Is Onyx Device", info.isOnyxDevice.toYesNo())
                     InfoRow("Is Color Device", info.isColorDevice.toYesNo())
+                    InfoRow("Board Platform", info.boardPlatform)
+                    InfoRow("Firmware Version", info.firmwareVersion)
+                    InfoRow("Firmware Build ID", info.firmwareBuildId?.toString())
                     InfoRow("CPU Serial", info.cpuSerial)
                     InfoRow("Resolution", "${info.resolutionX ?: "?"} x ${info.resolutionY ?: "?"}")
 
@@ -230,6 +233,7 @@ fun SystemInformationContent(
                     DividerMono()
 
                     SectionTitle("Wireless Charging")
+                    InfoRow("Support Charging Control", info.supportChargingControl.toYesNo())
                     InfoRow(
                         "Support Wireless Charging", info.supportWirelessCharging.toYesNo()
                     )
