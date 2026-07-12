@@ -21,9 +21,9 @@ class OnyxDisplayPolicyTest {
     }
 
     @Test
-    fun selectFullRefreshMode_usesRegalPlusWhenAdaptiveModeIsDisabled() {
+    fun selectFullRefreshMode_usesGcWhenAdaptiveModeIsDisabled() {
         assertEquals(
-            UpdateMode.REGAL_PLUS,
+            UpdateMode.GC,
             selectFullRefreshMode(regalDevice, 0, 1, adaptive = false)
         )
     }
@@ -31,13 +31,13 @@ class OnyxDisplayPolicyTest {
     @Test
     fun selectFullRefreshMode_schedulesPeriodicAndGhostingCleaningRefreshes() {
         assertEquals(UpdateMode.REGAL, selectFullRefreshMode(regalDevice, 0, 1, true))
-        assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 0, 6, true))
-        assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 40, 1, true))
+        assertEquals(UpdateMode.GC, selectFullRefreshMode(regalDevice, 0, 6, true))
+        assertEquals(UpdateMode.GC, selectFullRefreshMode(regalDevice, 40, 1, true))
     }
 
     @Test
     fun selectFullRefreshMode_continuesCleaningCadenceAcrossCycles() {
-        assertEquals(UpdateMode.REGAL_PLUS, selectFullRefreshMode(regalDevice, 0, 12, true))
+        assertEquals(UpdateMode.GC, selectFullRefreshMode(regalDevice, 0, 12, true))
         assertEquals(UpdateMode.REGAL, selectFullRefreshMode(regalDevice, 39, 13, true))
     }
 }

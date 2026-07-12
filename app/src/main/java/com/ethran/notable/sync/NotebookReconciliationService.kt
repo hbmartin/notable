@@ -51,7 +51,7 @@ class NotebookReconciliationService @Inject constructor(
     ): AppResult<Unit, DomainError> {
         logger.i(TAG, "Syncing notebook: $notebookId")
 
-        syncPreflightService.checkWifiConstraint().onError { return AppResult.Error(it) }
+        syncPreflightService.checkConnectivityConstraints().onError { return AppResult.Error(it) }
         syncPreflightService.checkClockSkew(webdavClient).onError { return AppResult.Error(it) }
 
         val localNotebook = appRepository.bookRepository.getById(notebookId)

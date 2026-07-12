@@ -9,7 +9,6 @@ import com.ethran.notable.utils.DomainError
 import com.ethran.notable.utils.flatMap
 import com.ethran.notable.utils.onError
 import com.ethran.notable.utils.onFailure
-import com.ethran.notable.utils.onSuccess
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -67,7 +66,7 @@ class SyncOrchestrator @Inject constructor(
             }
 
 
-            syncPreflightService.checkWifiConstraint().onFailure { error ->
+            syncPreflightService.checkConnectivityConstraints().onFailure { error ->
                 reporter.finishError(error, false)
                 return@withContext AppResult.Error(error)
             }
@@ -197,22 +196,21 @@ class SyncOrchestrator @Inject constructor(
             val settings = kvProxy.getSyncSettings()
             if (!settings.syncEnabled) return@withContext AppResult.Success(Unit)
 
-            syncPreflightService.checkWifiConstraint().onSuccess {
+            return@withContext syncPreflightService.checkConnectivityConstraints().flatMap {
                 if (settings.username.isBlank() || settings.password.isBlank()) {
-                    return@withContext AppResult.Error(DomainError.SyncAuthError)
+                    return@flatMap AppResult.Error(DomainError.SyncAuthError)
                 }
                 val client = webDavClientFactory.create(
                     settings.serverUrl,
                     settings.username,
                     settings.password
                 )
-                return@withContext notebookReconciliationService.syncNotebook(
+                notebookReconciliationService.syncNotebook(
                     notebookId,
                     client,
                     settings.uploadOnly
                 )
             }
-            AppResult.Success(Unit)
         }
 
     suspend fun syncFromPageId(pageId: String) {
@@ -231,7 +229,7 @@ class SyncOrchestrator @Inject constructor(
             val settings = kvProxy.getSyncSettings()
             if (!settings.syncEnabled) return@withContext AppResult.Success(Unit)
 
-            return@withContext syncPreflightService.checkWifiConstraint().flatMap {
+            return@withContext syncPreflightService.checkConnectivityConstraints().flatMap {
                 if (settings.username.isBlank() || settings.password.isBlank()) {
                     return@flatMap AppResult.Error(DomainError.SyncAuthError)
                 }

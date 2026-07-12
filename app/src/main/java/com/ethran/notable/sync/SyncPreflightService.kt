@@ -15,15 +15,18 @@ class SyncPreflightService @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val kvProxy: KvProxy
 ) {
-    suspend fun checkWifiConstraint(): AppResult<Unit, DomainError> {
+    suspend fun checkConnectivityConstraints(): AppResult<Unit, DomainError> {
         val settings = kvProxy.getSyncSettings()
-        if (!settings.wifiOnly) return AppResult.Success(Unit)
-
-        return if (ConnectivityChecker(context).isUnmeteredConnected()) {
-            AppResult.Success(Unit)
-        } else {
-            AppResult.Error(DomainError.SyncWifiRequired)
+        val status = ConnectivityChecker(context).currentStatus()
+        if (!isNetworkUsableForServer(status, settings.serverUrl)) {
+            return AppResult.Error(DomainError.NetworkError("No usable network available for sync."))
         }
+
+        if (settings.wifiOnly && !status.unmetered) {
+            return AppResult.Error(DomainError.SyncWifiRequired)
+        }
+
+        return AppResult.Success(Unit)
     }
 
     fun checkClockSkew(webdavClient: WebDAVClient): AppResult<Unit, DomainError> {

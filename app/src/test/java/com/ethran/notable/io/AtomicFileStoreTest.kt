@@ -48,14 +48,18 @@ class AtomicFileStoreTest {
         val backup = java.io.File(directory, "page.webp.notable-backup")
         backup.writeText("recovered")
         val staleTemp = java.io.File(directory, ".page.webp.notable-tmp-stale")
+        val unrelatedTemp = java.io.File(directory, "user-document.tmp")
         staleTemp.writeText("partial")
+        unrelatedTemp.writeText("keep me")
         staleTemp.setLastModified(0L)
+        unrelatedTemp.setLastModified(0L)
 
         AtomicFileStore.recoverStaleFiles(directory)
 
         assertEquals("recovered", java.io.File(directory, "page.webp").readText())
         assertFalse(backup.exists())
         assertFalse(staleTemp.exists())
+        assertEquals("keep me", unrelatedTemp.readText())
         assertTrue(java.io.File(directory, "page.webp").isFile)
     }
 

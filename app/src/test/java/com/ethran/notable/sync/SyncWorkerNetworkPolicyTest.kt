@@ -6,6 +6,44 @@ import org.junit.Test
 
 class SyncWorkerNetworkPolicyTest {
     @Test
+    fun remoteServers_requireConnectedValidatedNetwork() {
+        assertFalse(
+            isNetworkUsableForServer(
+                ConnectivityStatus(connected = false, validated = false),
+                "https://dav.example.com/webdav",
+            )
+        )
+        assertFalse(
+            isNetworkUsableForServer(
+                ConnectivityStatus(connected = true, validated = false),
+                "https://dav.example.com/webdav",
+            )
+        )
+        assertTrue(
+            isNetworkUsableForServer(
+                ConnectivityStatus(connected = true, validated = true),
+                "https://dav.example.com/webdav",
+            )
+        )
+    }
+
+    @Test
+    fun localServers_allowConnectedUnvalidatedNetwork() {
+        assertTrue(
+            isNetworkUsableForServer(
+                ConnectivityStatus(connected = true, validated = false),
+                "http://192.168.1.20:8080/webdav",
+            )
+        )
+        assertFalse(
+            isNetworkUsableForServer(
+                ConnectivityStatus(connected = false, validated = false),
+                "http://192.168.1.20:8080/webdav",
+            )
+        )
+    }
+
+    @Test
     fun localWebDavHosts_doNotRequireValidatedInternet() {
         assertTrue(isLikelyLocalServerUrl("http://192.168.1.20:8080/webdav"))
         assertTrue(isLikelyLocalServerUrl("https://10.0.0.3/dav"))

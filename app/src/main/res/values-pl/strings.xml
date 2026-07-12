@@ -2,7 +2,11 @@
 <resources>
     <string name="home_quick_pages">Szybkie notatki</string>
     <string name="home_notebooks">Zeszyty</string>
+    <string name="home_folders_and_notebooks">Foldery i zeszyty</string>
     <string name="home_add_new_folder">Dodaj nowy folder</string>
+    <string name="home_folders_grouped">Foldery w osobnym wierszu</string>
+    <string name="home_folders_inline">Foldery w siatce zeszytów</string>
+    <string name="home_folder">Folder</string>
     <string name="home_new_folder">Nowy folder</string>
     <string name="home_view_name">Biblioteka</string>
     <string name="settings_title">Ustawienia</string>
@@ -103,6 +107,9 @@
     <string name="exporting_the_book_to">Eksportowanie zeszytu do %1$s…</string>
     <string name="clean_all_strokes">Wyczyść wszystkie kreski</string>
     <string name="cleared_all_strokes">Wyczyszczono wszystkie kreski</string>
+    <string name="clear_clipboard">Wyczyść schowek</string>
+    <string name="clipboard_cleared">Schowek został wyczyszczony</string>
+    <string name="clipboard_clear_incomplete">Schowek został wyczyszczony, ale nie udało się usunąć co najmniej jednego pliku z pamięci podręcznej</string>
     <string name="change_background">Zmień tło</string>
     <string name="bug_report">Zgłoś błąd</string>
 

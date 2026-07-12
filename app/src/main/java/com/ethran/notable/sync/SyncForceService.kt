@@ -28,6 +28,8 @@ class SyncForceService @Inject constructor(
         if (settings.username.isBlank() || settings.password.isBlank()) {
             return AppResult.Error(DomainError.SyncAuthError)
         }
+        syncPreflightService.checkConnectivityConstraints()
+            .onError { return AppResult.Error(it) }
 
         val webdavClient = webDavClientFactory.create(
             settings.serverUrl,
@@ -95,6 +97,8 @@ class SyncForceService @Inject constructor(
         if (settings.username.isBlank() || settings.password.isBlank()) {
             return AppResult.Error(DomainError.SyncAuthError)
         }
+        syncPreflightService.checkConnectivityConstraints()
+            .onError { return AppResult.Error(it) }
 
         val webdavClient = webDavClientFactory.create(
             settings.serverUrl,

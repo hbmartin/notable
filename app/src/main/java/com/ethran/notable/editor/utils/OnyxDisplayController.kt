@@ -15,10 +15,10 @@ fun selectFullRefreshMode(
     adaptive: Boolean,
 ): UpdateMode {
     if (!capabilities.supportsRegal) return UpdateMode.GC
-    if (!adaptive) return UpdateMode.REGAL_PLUS
+    if (!adaptive) return UpdateMode.GC
 
     val cleaningRefreshDue = partialRefreshCount >= 40 || fullRefreshCount % 6 == 0
-    return if (cleaningRefreshDue) UpdateMode.REGAL_PLUS else UpdateMode.REGAL
+    return if (cleaningRefreshDue) UpdateMode.GC else UpdateMode.REGAL
 }
 
 /** Coordinates EPD refreshes and temporary color adjustments owned by Notable. */
@@ -39,7 +39,7 @@ object OnyxDisplayController {
 
         val fullCount = fullRefreshes.incrementAndGet()
         val requested = if (forceClean) {
-            if (OnyxCapabilities.current.supportsRegal) UpdateMode.REGAL_PLUS else UpdateMode.GC
+            UpdateMode.GC
         } else {
             selectFullRefreshMode(
                 capabilities = OnyxCapabilities.current,
@@ -50,14 +50,13 @@ object OnyxDisplayController {
         }
 
         val fallbacks = when (requested) {
-            UpdateMode.REGAL_PLUS -> listOf(UpdateMode.REGAL_PLUS, UpdateMode.REGAL, UpdateMode.GC)
             UpdateMode.REGAL -> listOf(UpdateMode.REGAL, UpdateMode.GC)
             else -> listOf(requested, UpdateMode.GC)
         }.distinct()
 
-        // repaintEveryThing returns void, so the chain only advances when the SDK throws
-        // (e.g. a mode missing from old firmware). Firmware that silently ignores an
-        // unsupported mode reports success on the first entry.
+        // repaintEveryThing returns void, so unsupported modes that are silently ignored cannot
+        // be distinguished from success. Cleaning refreshes therefore request universally
+        // supported GC directly; only REGAL uses an exception-triggered fallback.
         for (mode in fallbacks) {
             if (runCatching { EpdController.repaintEveryThing(mode) }.isSuccess) {
                 // Plain REGAL preserves ghosting, so only a cleaning waveform pays down
