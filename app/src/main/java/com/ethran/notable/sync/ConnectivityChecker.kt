@@ -25,24 +25,6 @@ class ConnectivityChecker(private val context: Context) {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    /**
-     * Check if network is available and connected.
-     * @return true if internet connection is available
-     */
-    fun isNetworkAvailable(requireValidated: Boolean = true): Boolean {
-        val status = currentStatus()
-        return status.connected && (!requireValidated || status.validated)
-    }
-
-    /**
-     * Check if on an unmetered connection (WiFi or ethernet, not metered mobile data).
-     * Mirrors WorkManager's NetworkType.UNMETERED so the in-process check stays consistent
-     * with the WorkManager constraint used in SyncScheduler.
-     */
-    fun isUnmeteredConnected(): Boolean {
-        return currentStatus().unmetered
-    }
-
     fun currentStatus(): ConnectivityStatus {
         val network = connectivityManager.activeNetwork ?: return ConnectivityStatus()
         val capabilities = connectivityManager.getNetworkCapabilities(network)

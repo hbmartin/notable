@@ -109,7 +109,7 @@ fun EditorView(
         settings.activePenHapticStrength,
         settings.activePenHapticType,
     ) {
-        viewModel.applyActivePenPreferences()
+        viewModel.applyActivePenPreferences(settings)
     }
 
     LaunchedEffect(viewModel) {

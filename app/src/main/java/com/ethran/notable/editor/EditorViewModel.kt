@@ -10,6 +10,7 @@ import com.ethran.notable.R
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.copyImageToDatabase
+import com.ethran.notable.data.datastore.AppSettings
 import com.ethran.notable.data.datastore.EditorSettingCacheManager
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.getPageIndex
@@ -46,6 +47,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
@@ -202,6 +205,7 @@ class EditorViewModel @Inject constructor(
     // ---- Init guard ----
     private val didInitSettings = AtomicBoolean(false)
     private val didWarnAboutPenBattery = AtomicBoolean(false)
+    private val activePenPreferencesMutex = Mutex()
 
     // ---- Selection state (kept for drawing logic compatibility) ----
     val selectionState = SelectionState()
@@ -245,9 +249,11 @@ class EditorViewModel @Inject constructor(
 
     fun createHistory(page: PageView): History = historyFactory.create(page)
 
-    fun applyActivePenPreferences() {
-        viewModelScope.launch(Dispatchers.IO) {
-            OnyxActivePenController.applyPreferences(GlobalAppSettings.current)
+    suspend fun applyActivePenPreferences(settings: AppSettings) {
+        withContext(Dispatchers.IO) {
+            activePenPreferencesMutex.withLock {
+                OnyxActivePenController.applyPreferences(settings)
+            }
         }
     }
 
