@@ -122,11 +122,11 @@ private fun ToolbarMenuContent(
             onAction(ToolbarAction.ClearAllStrokes)
             onAction(ToolbarAction.ToggleMenu)
         }
-        if (uiState.hasClipboard) {
-            MenuItem(stringResource(R.string.clear_clipboard)) {
-                onAction(ToolbarAction.ClearClipboard)
-                onAction(ToolbarAction.ToggleMenu)
-            }
+        // Not gated on hasClipboard: this also wipes the Android clipboard and cached
+        // share images, which the user may want even with an empty editor clipboard.
+        MenuItem(stringResource(R.string.clear_clipboard)) {
+            onAction(ToolbarAction.ClearClipboard)
+            onAction(ToolbarAction.ToggleMenu)
         }
         DividerCentered()
 

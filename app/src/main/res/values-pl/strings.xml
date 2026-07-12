@@ -29,6 +29,24 @@
     <string name="paginate_pdf">Podziel strony przy eksporcie</string>
     <string name="preview_pdf_pagination">Podgląd podziału stron</string>
 
+    <string name="active_pen_low_battery_warning">Ostrzegaj o niskim poziomie baterii rysika</string>
+    <string name="active_pen_low_battery_threshold">Próg niskiego poziomu baterii rysika</string>
+    <string name="active_pen_haptics">Wibracje rysika</string>
+    <string name="active_pen_haptic_strength">Siła wibracji rysika</string>
+    <string name="active_pen_haptic_type">Wzór wibracji rysika</string>
+    <string name="haptic_strength_low">Niska</string>
+    <string name="haptic_strength_medium">Średnia</string>
+    <string name="haptic_strength_high">Wysoka</string>
+    <string name="haptic_type_option">Typ %1$d</string>
+    <string name="pen_pressure_sensitivity">Czułość nacisku</string>
+    <string name="pen_minimum_width">Minimalna grubość kreski</string>
+    <string name="pressure_sensitivity_soft">Miękka</string>
+    <string name="pressure_sensitivity_normal">Normalna</string>
+    <string name="pressure_sensitivity_firm">Twarda</string>
+    <string name="percent_value">%1$d%%</string>
+    <string name="active_pen_battery_label">Rysik %1$d%%</string>
+    <string name="active_pen_low_battery">Niski poziom baterii rysika (%1$d%%)</string>
+
     <string name="app_new_version">Wygląda na to, że nowa wersja Notable jest dostępna na GitHubie!</string>
     <string name="app_see_release">Zobacz wersję w przeglądarce</string>
     <string name="app_latest_version">Aplikacja jest aktualna.</string>

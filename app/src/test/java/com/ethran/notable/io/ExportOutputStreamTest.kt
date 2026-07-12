@@ -5,6 +5,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.FileOutputStream
+import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicInteger
 
 class ExportOutputStreamTest {
     @get:Rule
@@ -24,5 +26,28 @@ class ExportOutputStreamTest {
         }
 
         assertEquals("payload-synced", file.readText())
+    }
+
+    @Test
+    fun bulkWritesDelegateWithoutFallingBackToSingleByteWrites() {
+        val ownedOutput = RecordingOutputStream()
+
+        NonClosingOutputStream(ownedOutput).write(ByteArray(8 * 1024))
+
+        assertEquals(1, ownedOutput.bulkWriteCount.get())
+        assertEquals(0, ownedOutput.singleByteWriteCount.get())
+    }
+
+    private class RecordingOutputStream : OutputStream() {
+        val bulkWriteCount = AtomicInteger()
+        val singleByteWriteCount = AtomicInteger()
+
+        override fun write(value: Int) {
+            singleByteWriteCount.incrementAndGet()
+        }
+
+        override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            bulkWriteCount.incrementAndGet()
+        }
     }
 }

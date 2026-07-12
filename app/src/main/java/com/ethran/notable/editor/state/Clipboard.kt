@@ -33,16 +33,13 @@ object ClipboardStore {
     /** Clear editor objects, the Android clipboard, and cached clipboard/share images. */
     fun clear(context: Context): Boolean {
         _content.value = null
-        var complete = true
-        runCatching {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.clearPrimaryClip()
-        }.onFailure { complete = false }
+        val clipboardCleared = runCatching {
+            context.getSystemService(ClipboardManager::class.java).clearPrimaryClip()
+        }.isSuccess
 
         val imageCache = java.io.File(context.cacheDir, "images")
-        safeListFiles(imageCache).forEach { file ->
-            if (!file.delete() && file.exists()) complete = false
-        }
-        return complete
+        // count (not all) so every file is attempted even after a failure.
+        val failedDeletes = safeListFiles(imageCache).count { !it.delete() && it.exists() }
+        return clipboardCleared && failedDeletes == 0
     }
 }

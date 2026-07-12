@@ -18,9 +18,7 @@
     <ID>AvoidVarsExceptWithDelegate:CanvasObserverRegistry.kt$CanvasObserverRegistry.Companion$// The observer job of the currently active registry. A newly registering registry // cancels the previous one, guaranteeing exactly one live observer set even if an old // DrawCanvas instance leaked. private var activeObserverJob: Job? = null</ID>
     <ID>AvoidVarsExceptWithDelegate:CanvasRefreshManager.kt$CanvasRefreshManager$var canvas: Canvas? = null</ID>
     <ID>AvoidVarsExceptWithDelegate:CanvasRefreshManager.kt$CanvasRefreshManager$var surfaceCanvas: Canvas? = null</ID>
-    <ID>AvoidVarsExceptWithDelegate:Clipboard.kt$ClipboardStore$var complete = true</ID>
     <ID>AvoidVarsExceptWithDelegate:DocumentKindDetector.kt$DocumentKindDetector$var count = 0</ID>
-    <ID>AvoidVarsExceptWithDelegate:DocumentKindDetector.kt$DocumentKindDetector$var matches = true</ID>
     <ID>AvoidVarsExceptWithDelegate:DrawCanvas.kt$DrawCanvas$var glRenderer = OpenGLRenderer(this)</ID>
     <ID>AvoidVarsExceptWithDelegate:EditorControlTower.kt$EditorControlTower$private var changePageObserverJob: Job? = null</ID>
     <ID>AvoidVarsExceptWithDelegate:EditorControlTower.kt$EditorControlTower$private var scrollConsumerJob: Job? = null</ID>
@@ -47,16 +45,13 @@
     <ID>AvoidVarsExceptWithDelegate:EncodingTest.kt$EncodingTest.CompressionStats$private var totalRaw = 0L</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$@Inject lateinit var xoppFile : XoppFile</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var backupUri: Uri? = null</ID>
-    <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var candidate = "$base ($counter)$extension"</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var candidate = File(parent, "$base ($counter)$ext")</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var children = listSafChildren(directory)</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var counter = 1</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var currentTop = 0</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var logicalPageNumber = pageNumber</ID>
     <ID>AvoidVarsExceptWithDelegate:ExportEngine.kt$ExportEngine$var prepared: File? = null</ID>
-    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var candidate = File(directory, "$base ($counter)$extension")</ID>
     <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var count = 1</ID>
-    <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var counter = 1</ID>
     <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var fileName: String? = null</ID>
     <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var intervalMs: Long = 5</ID>
     <ID>AvoidVarsExceptWithDelegate:FileUtils.kt$var name = Normalizer.normalize(raw, Normalizer.Form.NFD) .replace(Regex("\\p{Mn}+"), "") // remove diacritics</ID>
@@ -232,7 +227,6 @@
     <ID>DestructuringDeclarationWithTooManyEntries:versionChecker.kt$Version.Companion$val (major, minor, patch, dateStr) = match.destructured</ID>
     <ID>DontForceCast:AppResultTest.kt$AppResultTest$as</ID>
     <ID>DontForceCast:BackgroundSelector.kt$as</ID>
-    <ID>DontForceCast:Clipboard.kt$ClipboardStore$as</ID>
     <ID>DontForceCast:ConnectivityChecker.kt$ConnectivityChecker$as</ID>
     <ID>DontForceCast:ExportEngine.kt$ExportEngine$as</ID>
     <ID>DontForceCast:NotebookReconciliationService.kt$NotebookReconciliationService$as</ID>
@@ -388,7 +382,7 @@
     <ID>NewLineAtEndOfFile:pageDrawing.kt$com.ethran.notable.editor.drawing.pageDrawing.kt</ID>
     <ID>NewLineAtEndOfFile:penStrokes.kt$com.ethran.notable.editor.drawing.penStrokes.kt</ID>
     <ID>NewLineAtEndOfFile:renderPdf.kt$com.ethran.notable.io.renderPdf.kt</ID>
-    <ID>NoCallbacksInFunctions:AtomicFileStore.kt$AtomicFileStore$@Synchronized fun write(target: File, writer: (OutputStream) -&gt; Unit)</ID>
+    <ID>NoCallbacksInFunctions:AtomicFileStore.kt$AtomicFileStore$fun write(target: File, writer: (OutputStream) -&gt; Unit)</ID>
     <ID>NoCallbacksInFunctions:BackgroundFileWatcher.kt$BackgroundFileWatcher$fun startCollector(onPageInvalidated: suspend (pageId: String) -&gt; Unit)</ID>
     <ID>NoCallbacksInFunctions:EditorSelectionThreadSafetyTests.kt$EditorSelectionThreadSafetyTests$private fun runOnMain(block: () -&gt; Unit)</ID>
     <ID>NoCallbacksInFunctions:EncodePolyline.kt$fun &lt;T : Number&gt; decode(polyline: String, precision: Int = 5, caster: (Double) -&gt; T): List&lt;T&gt;</ID>
@@ -433,8 +427,6 @@
     <ID>NoLateinitVar:XoppImportTest.kt$XoppImportTest$private lateinit var db: AppDatabase</ID>
     <ID>NoLateinitVar:XoppImportTest.kt$XoppImportTest$private lateinit var importEngine: ImportEngine</ID>
     <ID>NoNotNullOperator:AppRepository.kt$AppRepository$book!!</ID>
-    <ID>NoNotNullOperator:AtomicFileStoreTest.kt$AtomicFileStoreTest$target.parentFile!!</ID>
-    <ID>NoNotNullOperator:DocumentKindDetectorTest.kt$DocumentKindDetectorTest$result.error!!</ID>
     <ID>NoNotNullOperator:EditorGestureReceiver.kt$rectangleBounds!!</ID>
     <ID>NoNotNullOperator:EditorViewModel.kt$EditorViewModel$bookId!!</ID>
     <ID>NoNotNullOperator:EmptyIdEdgeCaseTest.kt$EmptyIdEdgeCaseTest$loaded!!</ID>

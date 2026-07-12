@@ -44,10 +44,12 @@ interface FolderDao {
     @Query("SELECT * FROM folder WHERE parentFolderId IS :folderId")
     fun getChildrenFolders(folderId: String?): LiveData<List<Folder>>
 
+    // :searchQuery must be pre-escaped with escapeSqlLike. SQLite LIKE is only
+    // case-insensitive for ASCII; non-ASCII titles match case-sensitively.
     @Query("""
         SELECT * FROM folder
         WHERE parentFolderId IS :folderId
-          AND (:searchQuery = '' OR title LIKE '%' || :searchQuery || '%' COLLATE NOCASE)
+          AND (:searchQuery = '' OR title LIKE '%' || :searchQuery || '%' ESCAPE '\')
         ORDER BY
           CASE WHEN :sortOrder = 'name' THEN title END COLLATE NOCASE ASC,
           CASE WHEN :sortOrder = 'created' THEN createdAt END DESC,

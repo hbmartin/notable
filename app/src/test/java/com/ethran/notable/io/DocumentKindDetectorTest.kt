@@ -30,7 +30,7 @@ class DocumentKindDetectorTest {
 
         assertEquals(DocumentKind.UNKNOWN, result.kind)
         assertFalse(result.isSupported)
-        assertTrue(result.error!!.contains("signature"))
+        assertTrue(requireNotNull(result.error).contains("signature"))
     }
 
     @Test

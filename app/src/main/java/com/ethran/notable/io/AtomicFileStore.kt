@@ -1,5 +1,6 @@
 package com.ethran.notable.io
 
+import io.shipbook.shipbooksdk.ShipBook
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -8,22 +9,24 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 private const val TEMP_MARKER = ".notable-tmp-"
 private const val BACKUP_SUFFIX = ".notable-backup"
 private const val STALE_TEMP_AGE_MS = 10 * 60 * 1000L
+private val atomicFileStoreLog by lazy { ShipBook.getLogger("AtomicFileStore") }
 
 /** Checked, crash-resistant writes for app-owned local files. */
 object AtomicFileStore {
-    @Synchronized
+    private val activeTemporaryFiles = ConcurrentHashMap.newKeySet<String>()
+
     fun write(target: File, writer: (OutputStream) -> Unit) {
         val parent = target.parentFile
             ?: throw IOException("Destination has no parent directory: ${target.absolutePath}")
         ensureDirectory(parent)
-        recoverStaleFiles(parent)
 
         val temp = File(parent, ".${target.name}$TEMP_MARKER${UUID.randomUUID()}")
-        val backup = File(parent, target.name + BACKUP_SUFFIX)
+        activeTemporaryFiles.add(temp.absolutePath)
 
         try {
             FileOutputStream(temp).use { output ->
@@ -35,18 +38,12 @@ object AtomicFileStore {
                 throw IOException("Temporary write produced an empty file: ${target.name}")
             }
 
-            if (!tryAtomicReplace(temp, target)) {
-                replaceWithRollback(temp, target, backup)
-            }
-            if (backup.exists() && !backup.delete()) {
-                throw IOException("Could not remove completed-write backup: ${backup.absolutePath}")
-            }
+            commitPrepared(temp, target)
         } catch (e: Exception) {
-            if (!target.exists() && backup.exists()) {
-                moveChecked(backup, target, replace = false)
-            }
             if (temp.exists() && !temp.delete()) temp.deleteOnExit()
             throw e
+        } finally {
+            activeTemporaryFiles.remove(temp.absolutePath)
         }
     }
 
@@ -63,8 +60,10 @@ object AtomicFileStore {
         }
         val backup = File(parent, target.name + BACKUP_SUFFIX)
         if (!tryAtomicReplace(temp, target)) replaceWithRollback(temp, target, backup)
+        // The write itself succeeded at this point; a leftover backup is self-healed by the
+        // next recoverStaleFiles pass and must not fail the caller.
         if (backup.exists() && !backup.delete()) {
-            throw IOException("Could not remove completed-write backup: ${backup.absolutePath}")
+            atomicFileStoreLog.w("Could not remove completed-write backup: ${backup.absolutePath}")
         }
     }
 
@@ -76,21 +75,26 @@ object AtomicFileStore {
         val staleBefore = System.currentTimeMillis() - STALE_TEMP_AGE_MS
         safeListFiles(directory).filter {
             it.name.contains(TEMP_MARKER) &&
-                    it.lastModified() <= staleBefore
+                    it.lastModified() <= staleBefore &&
+                    it.absolutePath !in activeTemporaryFiles
         }.forEach { temp ->
             if (!temp.delete() && temp.exists()) {
-                throw IOException("Could not remove stale temporary file: ${temp.absolutePath}")
+                atomicFileStoreLog.w("Could not remove stale temporary file: ${temp.absolutePath}")
             }
         }
 
+        // Recovery is best-effort: a backup that cannot be cleaned or restored right now stays
+        // on disk for the next pass instead of failing the caller's unrelated operation.
         safeListFiles(directory).filter { it.name.endsWith(BACKUP_SUFFIX) }.forEach { backup ->
             val target = File(directory, backup.name.removeSuffix(BACKUP_SUFFIX))
             if (target.exists()) {
                 if (!backup.delete() && backup.exists()) {
-                    throw IOException("Could not remove stale backup: ${backup.absolutePath}")
+                    atomicFileStoreLog.w("Could not remove stale backup: ${backup.absolutePath}")
                 }
             } else {
-                moveChecked(backup, target, replace = false)
+                runCatching { moveChecked(backup, target, replace = false) }.onFailure {
+                    atomicFileStoreLog.w("Could not restore backup ${backup.absolutePath}: ${it.message}")
+                }
             }
         }
     }

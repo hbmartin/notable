@@ -44,6 +44,8 @@ import javax.inject.Singleton
 
 /* ---------------------------- Public API ---------------------------- */
 
+private const val SAF_COPY_BACKUP_SUFFIX = ".notable-copy-backup"
+
 enum class ExportFormat { PDF, PNG, JPEG, XOPP }
 
 sealed class ExportTarget {
@@ -62,6 +64,14 @@ data class ExportOptions(
 
 /** Lets format writers finish their own wrappers without closing the file owned by the exporter. */
 internal class NonClosingOutputStream(output: OutputStream) : FilterOutputStream(output) {
+    override fun write(buffer: ByteArray) {
+        out.write(buffer)
+    }
+
+    override fun write(buffer: ByteArray, offset: Int, length: Int) {
+        out.write(buffer, offset, length)
+    }
+
     override fun close() {
         flush()
     }
@@ -530,15 +540,11 @@ class ExportEngine @Inject constructor(
                     val target = if (!overwrite && requested.exists()) {
                         uniqueSibling(parent, displayName)
                     } else requested
-                    val temp = File(parent, ".${target.name}.notable-tmp-${UUID.randomUUID()}")
-                    prepared.inputStream().use { input ->
-                        FileOutputStream(temp).use { output ->
+                    AtomicFileStore.write(target) { output ->
+                        prepared.inputStream().use { input ->
                             input.copyTo(output)
-                            output.flush()
-                            output.fd.sync()
                         }
                     }
-                    AtomicFileStore.commitPrepared(temp, target)
                 }
 
                 else -> throw IOException("Unsupported Uri scheme: ${folderUri.scheme}")
@@ -708,16 +714,77 @@ class ExportEngine @Inject constructor(
             mimeType,
             displayName,
         ) ?: throw IOException("The document provider could not create the final export")
+        val rollbackDocument = existing?.let {
+            createSafCopyBackup(directory, displayName, mimeType, it)
+        }
 
         try {
-            resolver.openOutputStream(destination, "wt")?.use { output ->
-                prepared.inputStream().use { it.copyTo(output) }
-                output.flush()
-            } ?: throw IOException("The document provider could not write the final export")
+            writeFileToSafDocument(prepared, destination)
+            rollbackDocument?.let { backup ->
+                if (!DocumentsContract.deleteDocument(resolver, backup)) {
+                    throw IOException("Could not remove the completed export rollback copy")
+                }
+            }
         } catch (e: Exception) {
-            if (created) deleteSafDocumentBestEffort(destination)
+            if (rollbackDocument != null) {
+                runCatching { copySafDocument(rollbackDocument, destination) }
+                    .onSuccess { deleteSafDocumentBestEffort(rollbackDocument) }
+                    .onFailure { restoreError -> e.addSuppressed(restoreError) }
+            } else if (created) {
+                deleteSafDocumentBestEffort(destination)
+            }
             throw e
         }
+    }
+
+    /**
+     * Providers without rename support require an in-place overwrite. Preserve the complete
+     * previous document in the provider before opening it with "wt", which truncates immediately.
+     * A surviving copy is treated as an interrupted transaction and restored on the next export.
+     */
+    private fun createSafCopyBackup(
+        directory: SafDirectory,
+        displayName: String,
+        mimeType: String,
+        documentUri: Uri,
+    ): Uri {
+        val resolver = context.contentResolver
+        val backupName = "$displayName$SAF_COPY_BACKUP_SUFFIX"
+        listSafChildren(directory)[backupName]?.let { stale ->
+            if (!DocumentsContract.deleteDocument(resolver, stale)) {
+                throw IOException("Could not remove stale provider rollback copy")
+            }
+        }
+        val backup = DocumentsContract.createDocument(
+            resolver,
+            directory.parentUri,
+            mimeType,
+            backupName,
+        ) ?: throw IOException("The document provider could not create an export rollback copy")
+
+        try {
+            copySafDocument(documentUri, backup)
+            return backup
+        } catch (e: Exception) {
+            deleteSafDocumentBestEffort(backup)
+            throw e
+        }
+    }
+
+    private fun copySafDocument(source: Uri, destination: Uri) {
+        context.contentResolver.openInputStream(source)?.use { input ->
+            context.contentResolver.openOutputStream(destination, "wt")?.use { output ->
+                input.copyTo(output)
+                output.flush()
+            } ?: throw IOException("The document provider could not write an export rollback copy")
+        } ?: throw IOException("The document provider could not read an export rollback copy")
+    }
+
+    private fun writeFileToSafDocument(source: File, destination: Uri) {
+        context.contentResolver.openOutputStream(destination, "wt")?.use { output ->
+            source.inputStream().use { it.copyTo(output) }
+            output.flush()
+        } ?: throw IOException("The document provider could not write the final export")
     }
 
     private fun deleteSafDocumentBestEffort(documentUri: Uri) {
@@ -782,6 +849,23 @@ class ExportEngine @Inject constructor(
             }
         }
         children = listSafChildren(directory)
+        // Some providers append an extension based on MIME type, so identify rollback copies by
+        // marker rather than requiring it to be the final display-name suffix.
+        children.filterKeys { it.contains(SAF_COPY_BACKUP_SUFFIX) }
+            .forEach { (name, backup) ->
+                val originalName = name.substringBefore(SAF_COPY_BACKUP_SUFFIX)
+                val original = children[originalName] ?: DocumentsContract.createDocument(
+                    resolver,
+                    directory.parentUri,
+                    resolver.getType(backup) ?: "application/octet-stream",
+                    originalName,
+                ) ?: throw IOException("Could not recreate an interrupted provider export")
+                copySafDocument(backup, original)
+                if (!DocumentsContract.deleteDocument(resolver, backup)) {
+                    throw IOException("Could not remove a restored provider rollback copy")
+                }
+            }
+        children = listSafChildren(directory)
         children.filterKeys { it.endsWith(".notable-backup") }.forEach { (name, backup) ->
             val originalName = name.removeSuffix(".notable-backup")
             if (originalName in children) {
@@ -798,13 +882,9 @@ class ExportEngine @Inject constructor(
         val dot = displayName.lastIndexOf('.')
         val base = if (dot > 0) displayName.substring(0, dot) else displayName
         val extension = if (dot > 0) displayName.substring(dot) else ""
-        var counter = 1
-        var candidate = "$base ($counter)$extension"
-        while (candidate in existingNames) {
-            counter++
-            candidate = "$base ($counter)$extension"
-        }
-        return candidate
+        return generateSequence(1) { it + 1 }
+            .map { counter -> "$base ($counter)$extension" }
+            .first { it !in existingNames }
     }
 
 
