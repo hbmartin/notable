@@ -29,7 +29,7 @@ class SyncPreflightService @Inject constructor(
         return AppResult.Success(Unit)
     }
 
-    fun checkClockSkew(webdavClient: WebDAVClient): AppResult<Unit, DomainError> {
+    fun checkClockSkew(webdavClient: RemoteSyncProvider): AppResult<Unit, DomainError> {
         val serverTime = webdavClient.getServerTime()
             ?: return AppResult.Error(DomainError.NetworkError("Could not retrieve server time"))
 
@@ -41,7 +41,7 @@ class SyncPreflightService @Inject constructor(
         }
     }
 
-    fun ensureServerDirectories(webdavClient: WebDAVClient): AppResult<Unit, DomainError> {
+    fun ensureServerDirectories(webdavClient: RemoteSyncProvider): AppResult<Unit, DomainError> {
         if (!webdavClient.exists(SyncPaths.rootDir())) {
             webdavClient.createCollection(SyncPaths.rootDir()).onError { return AppResult.Error(it) }
         }

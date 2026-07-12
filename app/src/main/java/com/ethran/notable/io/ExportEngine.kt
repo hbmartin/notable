@@ -28,6 +28,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -36,6 +37,10 @@ import java.io.FileOutputStream
 import java.io.FilterOutputStream
 import java.io.IOException
 import java.io.OutputStream
+import com.artifex.mupdf.fitz.Document
+import com.artifex.mupdf.fitz.PDFPage
+import com.artifex.mupdf.fitz.Rect as FitzRect
+import com.ethran.notable.data.db.LinkTargetType
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -160,21 +165,25 @@ class ExportEngine @Inject constructor(
             is ExportTarget.Book -> {
                 val book = bookRepo.getById(target.bookId) ?: return "Book ID not found"
                 writeAction = { out ->
+                    val raw = ByteArrayOutputStream()
                     PdfDocument().use { doc ->
                         book.pageIds.forEachIndexed { index, pageId ->
                             writePageToPdfDocument(doc, pageId, pageNumber = index + 1)
                         }
-                        doc.writeTo(out)
+                        doc.writeTo(raw)
                     }
+                    out.write(addPdfLinkAnnotations(raw.toByteArray(), target))
                 }
             }
 
             is ExportTarget.Page -> {
                 writeAction = { out ->
+                    val raw = ByteArrayOutputStream()
                     PdfDocument().use { doc ->
                         writePageToPdfDocument(doc, target.pageId, pageNumber = 1)
-                        doc.writeTo(out)
+                        doc.writeTo(raw)
                     }
+                    out.write(addPdfLinkAnnotations(raw.toByteArray(), target))
                 }
                 if (options.copyToClipboard) copyPagePngLink(
                     context, target.pageId
@@ -450,6 +459,84 @@ class ExportEngine @Inject constructor(
             doc.finishPage(page)
         }
     }
+
+    @Suppress("CyclomaticComplexMethod", "AvoidVarsExceptWithDelegate")
+    private suspend fun addPdfLinkAnnotations(pdfBytes: ByteArray, target: ExportTarget): ByteArray =
+        withContext(Dispatchers.IO) {
+            val pageIds = when (target) {
+                is ExportTarget.Page -> listOf(target.pageId)
+                is ExportTarget.Book -> bookRepo.getById(target.bookId)?.pageIds.orEmpty()
+            }
+            if (pageIds.isEmpty()) return@withContext pdfBytes
+
+            data class ExportedPage(val pageId: String, val pdfIndex: Int, val topPx: Float)
+            val exportedPages = mutableListOf<ExportedPage>()
+            val firstPdfIndex = mutableMapOf<String, Int>()
+            var pdfIndex = 0
+            for (pageId in pageIds) {
+                val data = pageContentRenderer.loadPageContent(pageId) ?: continue
+                firstPdfIndex[pageId] = pdfIndex
+                val (_, height) = pageContentRenderer.computeContentDimensions(data)
+                val scaledHeight = height * (A4_WIDTH.toFloat() / SCREEN_WIDTH.toFloat())
+                val count = if (GlobalAppSettings.current.paginatePdf) {
+                    kotlin.math.ceil(scaledHeight / A4_HEIGHT).toInt().coerceAtLeast(1)
+                } else 1
+                repeat(count) { segment ->
+                    val topPx = if (GlobalAppSettings.current.paginatePdf) {
+                        segment * A4_HEIGHT / (A4_WIDTH.toFloat() / SCREEN_WIDTH.toFloat())
+                    } else 0f
+                    exportedPages += ExportedPage(pageId, pdfIndex++, topPx)
+                }
+            }
+
+            val document = Document.openDocument(pdfBytes, "application/pdf").asPDF()
+            try {
+                val scale = A4_WIDTH.toFloat() / SCREEN_WIDTH.toFloat()
+                for (source in exportedPages) {
+                    val data = pageContentRenderer.loadPageContent(source.pageId) ?: continue
+                    val pdfPage = document.loadPage(source.pdfIndex) as? PDFPage ?: continue
+                    val segmentBottom = source.topPx + if (GlobalAppSettings.current.paginatePdf) A4_HEIGHT / scale else Float.MAX_VALUE
+                    data.links.filter { it.y + it.height >= source.topPx && it.y <= segmentBottom }.forEach { link ->
+                        val bounds = FitzRect(
+                            link.x * scale,
+                            (link.y - source.topPx) * scale,
+                            (link.x + link.width) * scale,
+                            (link.y + link.height - source.topPx) * scale,
+                        )
+                        val internalDestination = when (link.targetType) {
+                            LinkTargetType.PAGE -> firstPdfIndex[link.target]
+                            LinkTargetType.NOTEBOOK -> null
+                            else -> null
+                        }
+                        if (internalDestination != null) {
+                            pdfPage.createLinkFit(bounds, internalDestination)
+                        } else {
+                            val uri = when (link.targetType) {
+                                LinkTargetType.PAGE -> "notable://page-${link.target}"
+                                LinkTargetType.NOTEBOOK -> "notable://book-${link.target}"
+                                LinkTargetType.URL -> link.target
+                                LinkTargetType.PDF_ATTACHMENT -> "notable://attachment-${link.target}"
+                            }
+                            pdfPage.createLink(bounds, uri)
+                        }
+                    }
+                    pdfPage.update()
+                    pdfPage.destroy()
+                }
+                val output = File(context.cacheDir, ".notable-annotated-${java.util.UUID.randomUUID()}.pdf")
+                try {
+                    document.save(output.absolutePath, "garbage=collect,compress")
+                    output.readBytes()
+                } finally {
+                    output.delete()
+                }
+            } catch (error: Exception) {
+                log.w("Could not add PDF link annotations: ${error.message}")
+                pdfBytes
+            } finally {
+                document.destroy()
+            }
+        }
 
 
     /* -------------------- Saving Helpers -------------------- */

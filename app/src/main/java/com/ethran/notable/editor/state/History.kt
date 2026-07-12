@@ -3,6 +3,8 @@ package com.ethran.notable.editor.state
 import android.graphics.Rect
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Stroke
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.CanvasText
 import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.editor.PageView
@@ -21,6 +23,14 @@ sealed class Operation {
     data class AddStroke(val strokes: List<Stroke>) : Operation()
     data class AddImage(val images: List<Image>) : Operation()
     data class DeleteImage(val imageIds: List<String>) : Operation()
+    data class ReplaceStrokes(val before: List<Stroke>, val after: List<Stroke>) : Operation()
+    data class ReplaceImages(val before: List<Image>, val after: List<Image>) : Operation()
+    data class AddText(val items: List<CanvasText>) : Operation()
+    data class DeleteText(val ids: List<String>) : Operation()
+    data class ReplaceText(val before: List<CanvasText>, val after: List<CanvasText>) : Operation()
+    data class AddLink(val items: List<CanvasLink>) : Operation()
+    data class DeleteLink(val ids: List<String>) : Operation()
+    data class ReplaceLink(val before: List<CanvasLink>, val after: List<CanvasLink>) : Operation()
 }
 
 typealias OperationBlock = List<Operation>
@@ -117,6 +127,56 @@ class History @AssistedInject constructor(
                 pageModel.removeImages(operation.imageIds)
                 return Operation.AddImage(images = images) to imageBoundsInt(images)
             }
+
+            is Operation.ReplaceStrokes -> {
+                pageModel.replaceStrokes(operation.before, operation.after)
+                val bounds = strokeBounds(operation.before)
+                bounds.union(strokeBounds(operation.after))
+                return Operation.ReplaceStrokes(operation.after, operation.before) to bounds
+            }
+
+            is Operation.ReplaceImages -> {
+                pageModel.replaceImages(operation.before, operation.after)
+                val bounds = imageBoundsInt(operation.before)
+                bounds.union(imageBoundsInt(operation.after))
+                return Operation.ReplaceImages(operation.after, operation.before) to bounds
+            }
+
+            is Operation.AddText -> {
+                pageModel.addTexts(operation.items)
+                return Operation.DeleteText(operation.items.map { it.id }) to textBounds(operation.items)
+            }
+
+            is Operation.DeleteText -> {
+                val items = pageModel.getTexts(operation.ids)
+                pageModel.removeTexts(operation.ids)
+                return Operation.AddText(items) to textBounds(items)
+            }
+
+            is Operation.ReplaceText -> {
+                pageModel.updateTexts(operation.after)
+                val bounds = textBounds(operation.before)
+                bounds.union(textBounds(operation.after))
+                return Operation.ReplaceText(operation.after, operation.before) to bounds
+            }
+
+            is Operation.AddLink -> {
+                pageModel.addLinks(operation.items)
+                return Operation.DeleteLink(operation.items.map { it.id }) to linkBounds(operation.items)
+            }
+
+            is Operation.DeleteLink -> {
+                val items = pageModel.getLinks(operation.ids)
+                pageModel.removeLinks(operation.ids)
+                return Operation.AddLink(items) to linkBounds(items)
+            }
+
+            is Operation.ReplaceLink -> {
+                pageModel.updateLinks(operation.after)
+                val bounds = linkBounds(operation.before)
+                bounds.union(linkBounds(operation.after))
+                return Operation.ReplaceLink(operation.after, operation.before) to bounds
+            }
         }
     }
 
@@ -158,4 +218,18 @@ class History @AssistedInject constructor(
     interface Factory {
         fun create(pageView: PageView): History
     }
+}
+
+private fun textBounds(items: List<CanvasText>): Rect = itemBounds(items.map {
+    Rect(it.x.toInt(), it.y.toInt(), (it.x + it.width).toInt(), (it.y + it.height).toInt())
+})
+
+private fun linkBounds(items: List<CanvasLink>): Rect = itemBounds(items.map {
+    Rect(it.x.toInt(), it.y.toInt(), (it.x + it.width).toInt(), (it.y + it.height).toInt())
+})
+
+private fun itemBounds(rects: List<Rect>): Rect {
+    val result = Rect()
+    rects.forEach(result::union)
+    return result
 }

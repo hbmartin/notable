@@ -2,17 +2,21 @@ package com.ethran.notable.editor.canvas
 
 import android.graphics.Rect
 import android.net.Uri
+import androidx.compose.ui.geometry.Offset
 import io.shipbook.shipbooksdk.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.system.measureTimeMillis
 
 object CanvasEventBus {
+    data class ContentTap(val screenPosition: Offset, val stylus: Boolean)
+
     val forceUpdate = MutableSharedFlow<Rect?>() // null for full redraw
     val refreshUi = MutableSharedFlow<Unit>()
     val refreshUiImmediately = MutableSharedFlow<Unit>(
@@ -63,6 +67,12 @@ object CanvasEventBus {
     // EditorView while an editor is open; MainActivity checks subscriptionCount to
     // know whether to consume the key event.
     val hardwarePageTurn = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+    private val _contentTap = MutableSharedFlow<ContentTap>(extraBufferCapacity = 1)
+    val contentTap = _contentTap.asSharedFlow()
+
+    fun emitContentTap(tap: ContentTap) {
+        _contentTap.tryEmit(tap)
+    }
 
 
     suspend fun waitForDrawing() {

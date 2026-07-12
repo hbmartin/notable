@@ -1,3 +1,5 @@
+@file:Suppress("AvoidVarsExceptWithDelegate")
+
 package com.ethran.notable.sync
 
 /**
@@ -6,12 +8,21 @@ package com.ethran.notable.sync
  * and make future structural changes easier.
  */
 object SyncPaths {
-    private const val ROOT = "notable"
+    private const val ROOT_V1 = "notable"
+    private const val ROOT_V2 = "notable-v2"
+    @Volatile private var root = ROOT_V1
+
+    fun useVersion(version: Int) {
+        root = if (version >= 2) ROOT_V2 else ROOT_V1
+    }
+
+    private val ROOT: String get() = root
 
     fun rootDir() = "/$ROOT"
     fun notebooksDir() = "/$ROOT/notebooks"
     fun tombstonesDir() = "/$ROOT/deletions"
     fun foldersFile() = "/$ROOT/folders.json"
+    fun versionMarker() = "/$ROOT/.notable-sync-v2"
 
     fun notebookDir(notebookId: String) = "/$ROOT/notebooks/$notebookId"
     fun manifestFile(notebookId: String) = "/$ROOT/notebooks/$notebookId/manifest.json"
@@ -22,6 +33,10 @@ object SyncPaths {
     fun imagesDir(notebookId: String) = "/$ROOT/notebooks/$notebookId/images"
     fun imageFile(notebookId: String, imageName: String) =
         "/$ROOT/notebooks/$notebookId/images/$imageName"
+
+    fun attachmentsDir(notebookId: String) = "/$ROOT/notebooks/$notebookId/attachments"
+    fun attachmentFile(notebookId: String, attachmentName: String) =
+        "/$ROOT/notebooks/$notebookId/attachments/$attachmentName"
 
     fun backgroundsDir(notebookId: String) = "/$ROOT/notebooks/$notebookId/backgrounds"
     fun backgroundFile(notebookId: String, bgName: String) =

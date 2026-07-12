@@ -2,6 +2,8 @@ package com.ethran.notable.io
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.RectF
 import android.net.Uri
 import android.util.Xml
@@ -9,6 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
+import androidx.core.graphics.createBitmap
+import androidx.compose.ui.geometry.Offset
 import com.ethran.notable.BuildConfig
 import com.ethran.notable.SCREEN_HEIGHT
 import com.ethran.notable.SCREEN_WIDTH
@@ -24,6 +28,8 @@ import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.editor.utils.Pen
+import com.ethran.notable.editor.drawing.CanvasTextRenderer
+import com.ethran.notable.editor.drawing.CanvasLinkRenderer
 import com.ethran.notable.utils.ensureNotMainThread
 import com.onyx.android.sdk.api.device.epd.EpdController
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,6 +48,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.OutputStreamWriter
+import java.io.ByteArrayOutputStream
 import java.util.Base64
 import java.util.UUID
 import javax.inject.Inject
@@ -156,7 +163,9 @@ class XoppFile @Inject constructor(
             val images = pageWithData.images
             val strokeHeight =
                 if (strokes.isEmpty()) 0 else strokes.maxOf(Stroke::bottom).toInt() + 50
-            val height = strokeHeight.coerceAtLeast(SCREEN_HEIGHT) * scaleFactor
+            val textHeight = pageWithData.texts.maxOfOrNull { (it.y + it.height).toInt() } ?: 0
+            val linkHeight = pageWithData.links.maxOfOrNull { (it.y + it.height).toInt() } ?: 0
+            val height = maxOf(strokeHeight, textHeight, linkHeight, SCREEN_HEIGHT) * scaleFactor
 
             writer.write("<page width=\"")
             writer.write(A4_WIDTH.toString())
@@ -235,9 +244,59 @@ class XoppFile @Inject constructor(
                 }
             }
 
+            writeFlattenedCanvasContent(pageWithData, writer)
+
             writer.write("</layer>\n")
             writer.write("</page>\n")
         }
+
+    private fun writeFlattenedCanvasContent(
+        page: com.ethran.notable.data.db.PageWithData,
+        writer: BufferedWriter,
+    ) {
+        if (page.texts.isEmpty() && page.links.isEmpty()) return
+        val left = minOf(
+            page.texts.minOfOrNull { it.x } ?: Float.MAX_VALUE,
+            page.links.minOfOrNull { it.x } ?: Float.MAX_VALUE,
+        ).coerceAtLeast(0f)
+        val top = minOf(
+            page.texts.minOfOrNull { it.y } ?: Float.MAX_VALUE,
+            page.links.minOfOrNull { it.y } ?: Float.MAX_VALUE,
+        ).coerceAtLeast(0f)
+        val right = maxOf(
+            page.texts.maxOfOrNull { it.x + it.width } ?: 0f,
+            page.links.maxOfOrNull { it.x + it.width } ?: 0f,
+        )
+        val bottom = maxOf(
+            page.texts.maxOfOrNull { it.y + it.height } ?: 0f,
+            page.links.maxOfOrNull { it.y + it.height } ?: 0f,
+        )
+        if (right <= left || bottom <= top) return
+        val bitmap = createBitmap((right - left).toInt().coerceAtLeast(1), (bottom - top).toInt().coerceAtLeast(1))
+        try {
+            val canvas = Canvas(bitmap)
+            val offset = Offset(-left, -top)
+            page.texts.forEach { CanvasTextRenderer.draw(canvas, it, context, offset) }
+            page.links.forEach { CanvasLinkRenderer.draw(canvas, it, offset) }
+            val png = ByteArrayOutputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                output.toByteArray()
+            }
+            writer.write("<image left=\"")
+            writer.write((left * scaleFactor).toString())
+            writer.write("\" top=\"")
+            writer.write((top * scaleFactor).toString())
+            writer.write("\" right=\"")
+            writer.write((right * scaleFactor).toString())
+            writer.write("\" bottom=\"")
+            writer.write((bottom * scaleFactor).toString())
+            writer.write("\" filename=\"notable-text-links.png\">")
+            writer.write(Base64.getEncoder().encodeToString(png))
+            writer.write("</image>\n")
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     private fun writeImageBase64ToWriter(uri: String, writer: BufferedWriter): Boolean {
         return try {

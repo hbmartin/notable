@@ -23,7 +23,7 @@ class NotebookReconciliationService @Inject constructor(
     private val logger = SyncLogger
 
     suspend fun syncExistingNotebooks(
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         uploadOnly: Boolean
     ): AppResult<Set<String>, DomainError> {
         val localNotebooks = appRepository.bookRepository.getAll()
@@ -46,7 +46,7 @@ class NotebookReconciliationService @Inject constructor(
 
     suspend fun syncNotebook(
         notebookId: String,
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         uploadOnly: Boolean
     ): AppResult<Unit, DomainError> {
         logger.i(TAG, "Syncing notebook: $notebookId")
@@ -139,7 +139,7 @@ class NotebookReconciliationService @Inject constructor(
         localNotebook: Notebook,
         remoteManifestJson: String,
         remoteEtag: String,
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         remoteIsNewer: Boolean
     ): AppResult<Unit, DomainError> {
         val notebookId = localNotebook.id
@@ -215,7 +215,7 @@ class NotebookReconciliationService @Inject constructor(
     }
 
     private fun fetchRemotePageBytes(
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         pagePath: String
     ): AppResult<ByteArray?, DomainError> {
         val exists = webdavClient.existsResult(pagePath)

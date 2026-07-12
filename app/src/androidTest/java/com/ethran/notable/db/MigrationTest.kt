@@ -21,6 +21,34 @@ import java.io.IOException
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
 
+    @Test(timeout = 60000)
+    fun migrate34To35_preservesContentAndCreatesCanvasTables() {
+        val dbName = "migration-test-34-to-35"
+        helper.createDatabase(dbName, 34).apply {
+            execSQL(
+                "INSERT INTO Page (id, scroll, notebookId, background, backgroundType, parentFolderId, createdAt, updatedAt) " +
+                    "VALUES ('page35', 0, NULL, 'blank', 'native', NULL, 1, 2)"
+            )
+            execSQL(
+                "INSERT INTO Image (id, x, y, height, width, uri, pageId, createdAt, updatedAt) " +
+                    "VALUES ('image35', 1, 2, 30, 40, NULL, 'page35', 1, 2)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 35, true)
+        db.query("SELECT rotation, flipHorizontal, flipVertical FROM Image WHERE id='image35'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0f, it.getFloat(0))
+            assertEquals(0, it.getInt(1))
+            assertEquals(0, it.getInt(2))
+        }
+        listOf("CanvasText", "CanvasLink", "Attachment", "AttachmentBinding").forEach { table ->
+            db.query("SELECT COUNT(*) FROM $table").use { assertTrue("missing $table", it.moveToFirst()) }
+        }
+        db.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
+    }
+
     @Test(timeout = 10000)
     fun simpleTest() {
         assertTrue(true)

@@ -17,7 +17,7 @@ class SyncForceService @Inject constructor(
     private val kvProxy: KvProxy,
     private val syncPreflightService: SyncPreflightService,
     private val notebookSyncService: NotebookSyncService,
-    private val webDavClientFactory: WebDavClientFactoryPort
+    private val providerFactory: RemoteSyncProviderFactoryPort
 ) {
     private val folderSerializer = FolderSerializer
     private val logger = SyncLogger
@@ -25,17 +25,20 @@ class SyncForceService @Inject constructor(
     suspend fun forceUploadAll(): AppResult<Unit, DomainError> {
         logger.i(TAG, "FORCE UPLOAD: Replacing server with local data")
         val settings = kvProxy.getSyncSettings()
-        if (settings.username.isBlank() || settings.password.isBlank()) {
+        if (settings.providerType == SyncProviderType.WEBDAV &&
+            (settings.username.isBlank() || settings.password.isBlank())) {
             return AppResult.Error(DomainError.SyncAuthError)
         }
         syncPreflightService.checkConnectivityConstraints()
             .onError { return AppResult.Error(it) }
 
-        val webdavClient = webDavClientFactory.create(
-            settings.serverUrl,
-            settings.username,
-            settings.password
-        )
+        val webdavClient = providerFactory.create(settings)
+            .let { result ->
+                when (result) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Error -> return result
+                }
+            }
 
         var persistentError: DomainError? = null
 
@@ -94,17 +97,20 @@ class SyncForceService @Inject constructor(
     suspend fun forceDownloadAll(): AppResult<Unit, DomainError> {
         logger.i(TAG, "FORCE DOWNLOAD: Replacing local with server data")
         val settings = kvProxy.getSyncSettings()
-        if (settings.username.isBlank() || settings.password.isBlank()) {
+        if (settings.providerType == SyncProviderType.WEBDAV &&
+            (settings.username.isBlank() || settings.password.isBlank())) {
             return AppResult.Error(DomainError.SyncAuthError)
         }
         syncPreflightService.checkConnectivityConstraints()
             .onError { return AppResult.Error(it) }
 
-        val webdavClient = webDavClientFactory.create(
-            settings.serverUrl,
-            settings.username,
-            settings.password
-        )
+        val webdavClient = providerFactory.create(settings)
+            .let { result ->
+                when (result) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Error -> return result
+                }
+            }
 
         var persistentError: DomainError? = null
 

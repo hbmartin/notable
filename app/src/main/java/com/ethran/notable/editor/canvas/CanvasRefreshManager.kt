@@ -15,6 +15,7 @@ import com.ethran.notable.editor.utils.OnyxDisplayController
 import com.ethran.notable.editor.utils.pointsToPath
 import com.ethran.notable.editor.utils.enableNativeEraser
 import com.ethran.notable.editor.utils.refreshScreenRegion
+import com.onyx.android.sdk.api.device.epd.UpdateMode
 import com.ethran.notable.editor.utils.resetScreenFreeze
 import com.ethran.notable.utils.logCallStack
 import com.onyx.android.sdk.api.device.epd.EpdController
@@ -201,6 +202,12 @@ class CanvasRefreshManager(
                 // Trigger partial refresh
                 refreshScreenRegion(drawCanvas, dirtyRect)
             }
+        }
+    }
+
+    fun previewShape(dirtyRect: Rect) {
+        drawCanvasToView(dirtyRect) {
+            refreshScreenRegion(drawCanvas, dirtyRect, UpdateMode.DU)
         }
     }
 }

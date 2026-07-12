@@ -42,6 +42,9 @@ data class AppSettings(
     // When enabled, scribble-to-erase clears every stroke inside the scribble's
     // bounding box instead of only the strokes the scribble touches.
     val scribbleToEraseBoundingBox: Boolean = false,
+    val shapePerfectionEnabled: Boolean = true,
+    val shapePerfectionDelayMs: Long = 800L,
+    val partialEraserDiameterDp: Float = 30f,
     val toolbarPosition: Position = Position.Top,
     val smoothScroll: Boolean = true,
     val continuousZoom: Boolean = false,

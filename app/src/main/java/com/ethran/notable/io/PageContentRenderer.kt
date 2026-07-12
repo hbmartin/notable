@@ -21,6 +21,8 @@ import com.ethran.notable.data.model.BackgroundType.Native
 import com.ethran.notable.editor.drawing.drawBg
 import com.ethran.notable.editor.drawing.drawImage
 import com.ethran.notable.editor.drawing.drawStroke
+import com.ethran.notable.editor.drawing.CanvasLinkRenderer
+import com.ethran.notable.editor.drawing.CanvasTextRenderer
 import com.ethran.notable.utils.ensureNotMainThread
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.shipbook.shipbooksdk.Log
@@ -126,12 +128,15 @@ class PageContentRenderer @Inject constructor(
 
             data.images.forEach { drawImage(context, canvas, it, -scroll) }
             data.strokes.forEach { drawStroke(canvas, it, -scroll) }
+            data.texts.forEach { CanvasTextRenderer.draw(canvas, it, context, -scroll) }
+            data.links.forEach { CanvasLinkRenderer.draw(canvas, it, -scroll) }
         }
     }
 
     // Returns (width, height)
+    @Suppress("ComplexCondition")
     fun computeContentDimensions(data: PageWithData): Pair<Int, Int> {
-        if (data.strokes.isEmpty() && data.images.isEmpty()) {
+        if (data.strokes.isEmpty() && data.images.isEmpty() && data.texts.isEmpty() && data.links.isEmpty()) {
             return SCREEN_WIDTH to SCREEN_HEIGHT
         }
 
@@ -139,10 +144,14 @@ class PageContentRenderer @Inject constructor(
         val strokeRight = data.strokes.maxOfOrNull { it.right.toInt() } ?: 0
         val imageBottom = data.images.maxOfOrNull { it.y + it.height } ?: 0
         val imageRight = data.images.maxOfOrNull { it.x + it.width } ?: 0
+        val textBottom = data.texts.maxOfOrNull { (it.y + it.height).toInt() } ?: 0
+        val textRight = data.texts.maxOfOrNull { (it.x + it.width).toInt() } ?: 0
+        val linkBottom = data.links.maxOfOrNull { (it.y + it.height).toInt() } ?: 0
+        val linkRight = data.links.maxOfOrNull { (it.x + it.width).toInt() } ?: 0
 
-        val rawHeight = maxOf(strokeBottom, imageBottom) +
+        val rawHeight = maxOf(strokeBottom, imageBottom, textBottom, linkBottom) +
                 if (GlobalAppSettings.current.visualizePdfPagination) 0 else 50
-        val rawWidth = maxOf(strokeRight, imageRight) + 50
+        val rawWidth = maxOf(strokeRight, imageRight, textRight, linkRight) + 50
 
         val height = rawHeight.coerceAtLeast(SCREEN_HEIGHT)
         val width = rawWidth.coerceAtLeast(SCREEN_WIDTH)

@@ -4,7 +4,7 @@ package com.ethran.notable.editor.state
  * Drawing mode for the editor.
  */
 enum class Mode {
-    Draw, Erase, Select, Line
+    Draw, Erase, Select, Line, Text, Link
 }
 
 /**

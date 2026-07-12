@@ -3,6 +3,7 @@ package com.ethran.notable
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -67,6 +68,7 @@ var SCREEN_HEIGHT = EpdController.getEpdWidth().toInt()
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var incomingNotableLink by mutableStateOf<Uri?>(null)
 
     // Delay the init till we have the permissions required
     @Inject
@@ -107,6 +109,7 @@ class MainActivity : ComponentActivity() {
         )
 
         Log.i(TAG, "Notable started")
+        incomingNotableLink = intent?.data?.takeIf { it.scheme == "notable" }
 
         SCREEN_WIDTH = applicationContext.resources.displayMetrics.widthPixels
         SCREEN_HEIGHT = applicationContext.resources.displayMetrics.heightPixels
@@ -158,7 +161,9 @@ class MainActivity : ComponentActivity() {
                             exportEngine = exportEngineLazy.get(),
                             snackState = snackState,
                             snackDispatcher = snackDispatcher,
-                            appRepository = appRepositoryLazy.get()
+                            appRepository = appRepositoryLazy.get(),
+                            incomingLink = incomingNotableLink,
+                            onIncomingLinkHandled = { incomingNotableLink = null },
                         )
                     } else {
                         ShowInitMessage()
@@ -166,6 +171,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        incomingNotableLink = intent.data?.takeIf { it.scheme == "notable" }
     }
 
 

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -45,6 +48,7 @@ val strokeStyle = Stroke(
 )
 
 @Composable
+@Suppress("LongMethod")
 fun SelectedBitmap(
     context: Context,
     controlTower: EditorControlTower
@@ -64,7 +68,7 @@ fun SelectedBitmap(
         Modifier
             .fillMaxSize()
             .noRippleClickable {
-                controlTower.applySelectionDisplace()
+                controlTower.commitPreviewTransform()
                 selectionState.reset()
                 controlTower.setIsDrawing(true)
             }) {
@@ -73,6 +77,11 @@ fun SelectedBitmap(
             contentDescription = "Selection bitmap",
             modifier = Modifier
                 .offset { selectionStartOffset + selectionDisplaceOffset }
+                .graphicsLayer(
+                    scaleX = selectionState.previewScaleX,
+                    scaleY = selectionState.previewScaleY,
+                    rotationZ = selectionState.previewRotation,
+                )
                 .drawBehind {
                     drawRect(
                         color = Color.Gray,
@@ -103,7 +112,7 @@ fun SelectedBitmap(
 
         // TODO: improve this code
 
-        val buttonCount = if (selectionState.isResizable()) 7 else 5
+        val buttonCount = if (selectionState.isResizable()) 10 else 5
         val toolbarPadding = 4
 
         // If we can calculate offset of buttons show selection handling tools
@@ -146,6 +155,27 @@ fun SelectedBitmap(
                             modifier = Modifier.height(BUTTON_SIZE.dp)
                         )
                         ToolbarButton(
+                            iconId = R.drawable.ic_rotate_selection,
+                            isSelected = false,
+                            onSelect = { controlTower.rotateSelection(90f) },
+                            modifier = Modifier.height(BUTTON_SIZE.dp),
+                            contentDescription = "Rotate selection",
+                        )
+                        ToolbarButton(
+                            iconId = R.drawable.ic_flip_horizontal,
+                            isSelected = false,
+                            onSelect = { controlTower.flipSelection(horizontal = true) },
+                            modifier = Modifier.height(BUTTON_SIZE.dp),
+                            contentDescription = "Flip horizontally",
+                        )
+                        ToolbarButton(
+                            iconId = R.drawable.ic_flip_vertical,
+                            isSelected = false,
+                            onSelect = { controlTower.flipSelection(horizontal = false) },
+                            modifier = Modifier.height(BUTTON_SIZE.dp),
+                            contentDescription = "Flip vertically",
+                        )
+                        ToolbarButton(
                             iconId = R.drawable.minus,
                             isSelected = false,
                             onSelect = { controlTower.changeSizeOfSelection(-10) },
@@ -171,8 +201,68 @@ fun SelectedBitmap(
                         modifier = Modifier.height(BUTTON_SIZE.dp)
                     )
                 }
+
+                val topLeft = startOffset + displaceOffset
+                val width = selectionRect.width().coerceAtLeast(1)
+                val height = selectionRect.height().coerceAtLeast(1)
+                TransformHandle(
+                    offset = topLeft + IntOffset(width, height),
+                    onDrag = { delta ->
+                        val factor = (1f + (delta.x + delta.y) / (width + height)).coerceAtLeast(0.05f)
+                        selectionState.previewScaleX *= factor
+                        selectionState.previewScaleY *= factor
+                    },
+                    onCommit = controlTower::commitPreviewTransform,
+                )
+                TransformHandle(
+                    offset = topLeft + IntOffset(width, height / 2),
+                    onDrag = { delta ->
+                        selectionState.previewScaleX =
+                            (selectionState.previewScaleX + delta.x / width).coerceAtLeast(0.05f)
+                    },
+                    onCommit = controlTower::commitPreviewTransform,
+                )
+                TransformHandle(
+                    offset = topLeft + IntOffset(width / 2, height),
+                    onDrag = { delta ->
+                        selectionState.previewScaleY =
+                            (selectionState.previewScaleY + delta.y / height).coerceAtLeast(0.05f)
+                    },
+                    onCommit = controlTower::commitPreviewTransform,
+                )
+                TransformHandle(
+                    offset = topLeft + IntOffset(width / 2, -35),
+                    color = Color.DarkGray,
+                    onDrag = { delta -> selectionState.previewRotation += delta.x * 0.5f },
+                    onCommit = controlTower::commitPreviewTransform,
+                )
             }
         }
 
     }
+}
+
+@Composable
+private fun TransformHandle(
+    offset: IntOffset,
+    color: Color = Color.White,
+    onDrag: (Offset) -> Unit,
+    onCommit: () -> Unit,
+) {
+    Box(
+        Modifier
+            .offset { offset - IntOffset(10, 10) }
+            .size(20.dp)
+            .background(color)
+            .border(2.dp, Color.Black)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = onCommit,
+                    onDragCancel = onCommit,
+                ) { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount)
+                }
+            }
+    )
 }

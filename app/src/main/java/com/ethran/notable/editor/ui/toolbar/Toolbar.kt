@@ -274,6 +274,7 @@ fun ToolbarContent(
                         value = uiState.eraser,
                         onChange = { onAction(ToolbarAction.ChangeEraser(it)) },
                         toggleScribbleToErase = { onAction(ToolbarAction.ToggleScribbleToErase(it)) },
+                        changePartialDiameter = { onAction(ToolbarAction.ChangePartialEraserDiameter(it)) },
                         onMenuOpenChange = { onAction(ToolbarAction.ToggleEraserManu(it)) },
                         isMenuOpen = uiState.isStrokeSelectionOpen
                     )
@@ -285,6 +286,24 @@ fun ToolbarContent(
                         onSelect = { onAction(ToolbarAction.ChangeMode(Mode.Select)) },
                         iconId = R.drawable.lasso,
                         contentDescription = "lasso"
+                    )
+
+                    VerticalDivider()
+
+                    ToolbarButton(
+                        isSelected = uiState.mode == Mode.Text,
+                        onSelect = { onAction(ToolbarAction.ChangeMode(Mode.Text)) },
+                        text = "T",
+                        contentDescription = "Text"
+                    )
+
+                    VerticalDivider()
+
+                    ToolbarButton(
+                        isSelected = uiState.mode == Mode.Link,
+                        onSelect = { onAction(ToolbarAction.ChangeMode(Mode.Link)) },
+                        text = "↗",
+                        contentDescription = "Link"
                     )
 
                     VerticalDivider()
@@ -446,6 +465,8 @@ fun presentlyUsedToolIcon(mode: Mode, pen: Pen): Int {
         Mode.Erase -> R.drawable.eraser
         Mode.Select -> R.drawable.lasso
         Mode.Line -> R.drawable.line
+        Mode.Text -> R.drawable.text_fields
+        Mode.Link -> R.drawable.link
     }
 }
 

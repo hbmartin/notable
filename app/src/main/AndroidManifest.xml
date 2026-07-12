@@ -24,6 +24,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:configChanges="orientation|screenSize"
             android:exported="true"
             android:theme="@style/Theme.Inka"

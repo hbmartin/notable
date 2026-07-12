@@ -1,3 +1,5 @@
+@file:Suppress("AvoidVarsExceptWithDelegate")
+
 package com.ethran.notable.editor.canvas
 
 import android.graphics.Color
@@ -8,11 +10,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toRect
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.StrokePoint
+import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.editor.EditorViewModel
 import com.ethran.notable.editor.state.Mode
 import com.ethran.notable.editor.PageView
 import com.ethran.notable.editor.state.History
 import com.ethran.notable.editor.utils.DeviceCompat
+import com.ethran.notable.editor.utils.DwellDetector
 import com.ethran.notable.editor.utils.Eraser
 import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.editor.utils.calculateBoundingBox
@@ -31,6 +35,12 @@ import com.ethran.notable.editor.utils.setupSurface
 import com.ethran.notable.editor.utils.transformToLine
 import com.ethran.notable.editor.utils.withPressureSettings
 import com.ethran.notable.editor.utils.OnyxCapabilities
+import com.ethran.notable.editor.utils.ShapeRecognitionResult
+import com.ethran.notable.editor.utils.ShapeRecognizer
+import com.ethran.notable.editor.utils.strokeBounds
+import com.ethran.notable.editor.drawing.drawStroke
+import androidx.compose.ui.geometry.Offset
+import androidx.core.graphics.toRect
 import com.ethran.notable.ui.convertDpToPixel
 import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.data.note.TouchPoint
@@ -69,6 +79,9 @@ class OnyxInputHandler(
         get() = toolbarState.penSettings[toolbarState.pen.penName]
             ?: EditorViewModel.DEFAULT_PEN_SETTINGS[toolbarState.pen.penName]
             ?: PenSetting(strokeSize = 5f, color = Color.BLACK)
+
+    private var recognizedShape: ShapeRecognitionResult? = null
+    private val dwellDetector = DwellDetector { points -> onShapeDwell(points) }
 
     companion object {
         // The Onyx firmware drives a single raw-input surface at a time, so device-wide
@@ -114,12 +127,23 @@ class OnyxInputHandler(
         // - erase :  `onBeginRawErasing()` -> `onRawErasingTouchPointMoveReceived()` -> `onRawErasingTouchPointListReceived()` -> `onEndRawErasing()`
 
         override fun onBeginRawDrawing(p0: Boolean, p1: TouchPoint?) {
+            recognizedShape = null
+            if (p1 != null && shapePerfectionAllowed()) {
+                val point = rawShapePoint(p1)
+                dwellDetector.start(point, GlobalAppSettings.current.shapePerfectionDelayMs)
+            } else {
+                dwellDetector.reset()
+            }
         }
 
         override fun onEndRawDrawing(p0: Boolean, p1: TouchPoint?) {
+            dwellDetector.stop()
         }
 
         override fun onRawDrawingTouchPointMoveReceived(p0: TouchPoint?) {
+            if (p0 != null && shapePerfectionAllowed()) {
+                dwellDetector.move(rawShapePoint(p0))
+            }
         }
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) =
@@ -177,6 +201,10 @@ class OnyxInputHandler(
 
             Mode.Select -> touchHelper?.setStrokeStyle(penToStroke(Pen.BALLPEN))?.setStrokeWidth(3f)
                 ?.setStrokeColor(Color.GRAY)
+
+            Mode.Text, Mode.Link -> touchHelper?.setStrokeStyle(penToStroke(Pen.BALLPEN))
+                ?.setStrokeWidth(1f)
+                ?.setStrokeColor(Color.TRANSPARENT)
         }
     }
 
@@ -193,6 +221,15 @@ class OnyxInputHandler(
     private fun applyEraserIndicatorStyle(penEraserColor: Int = Color.BLACK) {
         if (touchHelper == null) return
         when (toolbarState.eraser) {
+            Eraser.PARTIAL -> touchHelper!!.setStrokeStyle(penToStroke(Pen.MARKER))
+                ?.setStrokeWidth(
+                    convertDpToPixel(
+                        GlobalAppSettings.current.partialEraserDiameterDp.dp,
+                        drawCanvas.context,
+                    )
+                )
+                ?.setStrokeColor(penEraserColor)
+
             Eraser.PEN -> touchHelper!!.setStrokeStyle(penToStroke(Pen.MARKER))
                 ?.setStrokeWidth(30f)
                 ?.setStrokeColor(penEraserColor)
@@ -266,6 +303,55 @@ class OnyxInputHandler(
         maxPressure = OnyxCapabilities.current.maxTouchPressure,
     )
 
+    private fun rawShapePoint(point: TouchPoint): StrokePoint = copyInput(
+        touchPoints = listOf(point),
+        scroll = Offset.Zero,
+        scale = 1f,
+        pressureSetting = currentPenSetting.takeIf { toolbarState.pen.supportsPressure },
+        maxPressure = OnyxCapabilities.current.maxTouchPressure,
+    ).first()
+
+    private fun shapePerfectionAllowed(): Boolean =
+        GlobalAppSettings.current.shapePerfectionEnabled &&
+                toolbarState.mode == Mode.Draw &&
+                toolbarState.pen != Pen.MARKER
+
+    private fun onShapeDwell(rawPoints: List<StrokePoint>) {
+        if (!shapePerfectionAllowed()) return
+        val rawResult = ShapeRecognizer.recognize(rawPoints) ?: return
+        val zoom = page.zoomLevel.value
+        val pagePoints = rawResult.points.map { point ->
+            point.copy(
+                x = point.x / zoom + page.scroll.x,
+                y = point.y / zoom + page.scroll.y,
+            )
+        }
+        val result = rawResult.copy(points = pagePoints)
+        recognizedShape = result
+        dwellDetector.markRecognized()
+
+        val setting = currentPenSetting
+        val bounds = calculateBoundingBox(pagePoints) { it.x to it.y }.apply {
+            inset(-setting.strokeSize, -setting.strokeSize)
+        }
+        val preview = Stroke(
+            size = setting.strokeSize,
+            pen = toolbarState.pen,
+            color = setting.color,
+            maxPressure = OnyxCapabilities.current.maxTouchPressure.toInt(),
+            top = bounds.top,
+            bottom = bounds.bottom,
+            left = bounds.left,
+            right = bounds.right,
+            points = pagePoints,
+            pageId = page.currentPageId,
+        )
+        page.drawAreaPageCoordinates(bounds.toRect())
+        drawStroke(page.windowedCanvas, preview, -page.scroll)
+        drawCanvas.refreshManager.previewShape(page.toScreenCoordinates(bounds.toRect()))
+    }
+
+    @Suppress("LongMethod")
     private fun onRawDrawingList(plist: TouchPointList) {
         if (touchHelper == null) return
         val currentLastStrokeEndTime = lastStrokeEndTime
@@ -293,6 +379,14 @@ class OnyxInputHandler(
                         boundingBox.bottom + padding
                     )
                     drawCanvas.refreshManager.refreshUi(dirtyRect)
+                }
+            }
+
+            Mode.Text, Mode.Link -> {
+                plist.points.firstOrNull()?.let { point ->
+                    CanvasEventBus.emitContentTap(
+                        CanvasEventBus.ContentTap(Offset(point.x, point.y), stylus = true)
+                    )
                 }
             }
 
@@ -337,16 +431,19 @@ class OnyxInputHandler(
                         val lock = System.currentTimeMillis()
                         log.d("lock obtained in ${lock - startTime} ms")
 
-                        val scaledPoints = configuredStrokePoints(plist.points)
+                        val perfected = recognizedShape
+                        val scaledPoints = perfected?.points ?: configuredStrokePoints(plist.points)
                         val firstPointTime = plist.points.first().timestamp
-                        val erasedByScribbleDirtyRect = handleScribbleToErase(
-                            page,
-                            scaledPoints,
-                            history,
-                            toolbarState.pen,
-                            currentLastStrokeEndTime,
-                            firstPointTime
-                        )
+                        val erasedByScribbleDirtyRect = if (perfected == null) {
+                            handleScribbleToErase(
+                                page,
+                                scaledPoints,
+                                history,
+                                toolbarState.pen,
+                                currentLastStrokeEndTime,
+                                firstPointTime
+                            )
+                        } else null
                         if (erasedByScribbleDirtyRect.isNullOrEmpty()) {
                             log.d("Drawing...")
                             // draw the stroke
@@ -359,6 +456,10 @@ class OnyxInputHandler(
                                 toolbarState.pen,
                                 scaledPoints
                             )
+                            if (perfected != null) {
+                                val pageBounds = calculateBoundingBox(scaledPoints) { it.x to it.y }.toRect()
+                                drawCanvas.refreshManager.refreshUi(page.toScreenCoordinates(pageBounds))
+                            }
                         } else {
                             log.d("Erased by scribble, $erasedByScribbleDirtyRect")
                             // Union the scribble track (firmware screen coords) with the erased
@@ -379,6 +480,9 @@ class OnyxInputHandler(
                             // Use areaErase=true for the longer 500ms settle (scribble is a large gesture).
                             drawCanvas.refreshManager.commitErase(dirty, areaErase = true)
                         }
+
+                        recognizedShape = null
+                        dwellDetector.reset()
 
                     }
                     coroutineScope.launch(Dispatchers.Default) {
@@ -407,7 +511,11 @@ class OnyxInputHandler(
             drawCanvas.page,
             history,
             points,
-            eraser = toolbarState.eraser
+            eraser = toolbarState.eraser,
+            partialRadius = convertDpToPixel(
+                GlobalAppSettings.current.partialEraserDiameterDp.dp,
+                drawCanvas.context,
+            ) / 2f / page.zoomLevel.value,
         )
 
         // Single atomic commit of the whole touched region: the native eraser indicator

@@ -242,6 +242,16 @@ fun EditorView(
             }
         }
 
+        LaunchedEffect(Unit) {
+            CanvasEventBus.contentTap.collect { tap ->
+                editorControlTower.requestContentAtScreen(tap.screenPosition, tap.stylus)
+            }
+        }
+
+        LaunchedEffect(editorControlTower) {
+            editorControlTower.linkActivations.collect(viewModel::activateLink)
+        }
+
         // Handle focus changes from Canvas
 //        LaunchedEffect(Unit) {
 //            CanvasEventBus.onFocusChange.collect { hasFocus ->
@@ -297,6 +307,7 @@ fun EditorView(
             SelectedBitmap(
                 context = context, controlTower = editorControlTower
             )
+            CanvasContentEditor(controlTower = editorControlTower, page = page, viewModel = viewModel)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

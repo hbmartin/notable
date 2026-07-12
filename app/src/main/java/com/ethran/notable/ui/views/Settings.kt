@@ -116,6 +116,9 @@ fun SettingsView(
             onTestConnection = viewModel::onTestConnection,
             onManualSync = viewModel::onManualSync,
             onClearSyncLogs = viewModel::onClearSyncLogs,
+            onProviderSwitch = viewModel::onProviderSwitch,
+            onAuthorizeGoogleDrive = viewModel::onAuthorizeGoogleDrive,
+            onGoogleDriveAuthorizationResult = viewModel::onGoogleDriveAuthorizationResult,
             danger = SyncDangerCallbacks(
                 onForceUploadRequested = viewModel::onForceUploadRequested,
                 onForceDownloadRequested = viewModel::onForceDownloadRequested,

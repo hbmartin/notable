@@ -23,6 +23,8 @@ import com.ethran.notable.data.CachedBackground
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Image
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.CanvasText
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.data.model.SimplePointF
@@ -121,6 +123,16 @@ class PageView(
     var images: List<Image>
         get() = pageDataManager.getImages(currentPageId)
         set(value) = pageDataManager.setImages(currentPageId, value)
+
+    @Suppress("AvoidVarsExceptWithDelegate")
+    var texts: List<CanvasText>
+        get() = pageDataManager.getTexts(currentPageId)
+        set(value) = pageDataManager.setTexts(currentPageId, value)
+
+    @Suppress("AvoidVarsExceptWithDelegate")
+    var links: List<CanvasLink>
+        get() = pageDataManager.getLinks(currentPageId)
+        set(value) = pageDataManager.setLinks(currentPageId, value)
 
     // warning: The setter is delayed!
     private var currentBackground: CachedBackground
@@ -369,6 +381,15 @@ class PageView(
 //        persistBitmapDebounced()
     }
 
+    fun replaceStrokes(strokesToRemove: List<Stroke>, replacements: List<Stroke>) {
+        val removedIds = strokesToRemove.map { it.id }.toSet()
+        strokes = strokes.filterNot { it.id in removedIds } + replacements
+        updateHeightForChange(replacements)
+        pageDataManager.replaceStrokesInDb(removedIds.toList(), replacements)
+        pageDataManager.indexStrokes(coroutineScope, currentPageId)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
     fun removeStrokes(strokeIds: List<String>) {
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
         removeStrokesFromPersistLayer(strokeIds)
@@ -427,9 +448,59 @@ class PageView(
 //        persistBitmapDebounced()
     }
 
+    fun replaceImages(imagesToRemove: List<Image>, replacements: List<Image>) {
+        val removedIds = imagesToRemove.map { it.id }.toSet()
+        images = images.filterNot { it.id in removedIds } + replacements
+        pageDataManager.replaceImagesInDb(removedIds.toList(), replacements)
+        pageDataManager.indexImages(coroutineScope, currentPageId)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
     fun getImage(imageId: String): Image? = pageDataManager.getImage(imageId, currentPageId)
     fun getImages(imageIds: List<String>): List<Image?> =
         pageDataManager.getImages(imageIds, currentPageId)
+
+    fun addTexts(items: List<CanvasText>) {
+        texts += items
+        pageDataManager.saveTextsToDb(items)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun updateTexts(items: List<CanvasText>) {
+        val byId = items.associateBy { it.id }
+        texts = texts.map { byId[it.id] ?: it }
+        pageDataManager.updateTextsInDb(items)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun removeTexts(ids: List<String>) {
+        texts = texts.filterNot { it.id in ids }
+        pageDataManager.removeTextsFromDb(ids)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun getTexts(ids: List<String>): List<CanvasText> = texts.filter { it.id in ids }
+
+    fun addLinks(items: List<CanvasLink>) {
+        links += items
+        pageDataManager.saveLinksToDb(items)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun updateLinks(items: List<CanvasLink>) {
+        val byId = items.associateBy { it.id }
+        links = links.map { byId[it.id] ?: it }
+        pageDataManager.updateLinksInDb(items)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun removeLinks(ids: List<String>) {
+        links = links.filterNot { it.id in ids }
+        pageDataManager.removeLinksFromDb(ids)
+        pageDataManager.recomputeHeight(currentPageId)
+    }
+
+    fun getLinks(ids: List<String>): List<CanvasLink> = links.filter { it.id in ids }
 
 
     private fun removeStrokesFromPersistLayer(strokeIds: List<String>) =

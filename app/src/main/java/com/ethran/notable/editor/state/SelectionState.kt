@@ -58,6 +58,9 @@ class SelectionState {
     var selectionDisplaceOffset by mutableStateOf<IntOffset?>(null)
     var selectionRect by mutableStateOf<Rect?>(null)
     var placementMode by mutableStateOf<PlacementMode?>(null)
+    var previewScaleX by mutableStateOf(1f)
+    var previewScaleY by mutableStateOf(1f)
+    var previewRotation by mutableStateOf(0f)
 
     fun reset() {
         log.v("reset")
@@ -70,6 +73,9 @@ class SelectionState {
         selectionStartOffset = null
         selectionDisplaceOffset = null
         placementMode = null
+        previewScaleX = 1f
+        previewScaleY = 1f
+        previewRotation = 0f
         setAnimationMode(false)
     }
 
@@ -77,9 +83,7 @@ class SelectionState {
         return !selectedStrokes.isNullOrEmpty() || !selectedImages.isNullOrEmpty()
     }
 
-    fun isResizable(): Boolean {
-        return selectedImages?.count() == 1 && selectedStrokes.isNullOrEmpty()
-    }
+    fun isResizable(): Boolean = isNonEmpty()
 
     fun resizeImages(scale: Int, page: PageView): AppResult<Unit, DomainError> {
         log.v("resizeImages: scale=$scale")
@@ -144,7 +148,9 @@ class SelectionState {
     @Suppress("UNUSED_PARAMETER")
     fun resizeStrokes(scale: Int, scope: CoroutineScope, page: PageView) {
         log.v("resizeStrokes: scale=$scale")
-        //TODO: implement this
+        val factor = (1f + scale / 100f).coerceAtLeast(0.05f)
+        previewScaleX *= factor
+        previewScaleY *= factor
     }
 
     /**

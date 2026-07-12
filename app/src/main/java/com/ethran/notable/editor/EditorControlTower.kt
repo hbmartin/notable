@@ -2,9 +2,15 @@ package com.ethran.notable.editor
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.graphics.Rect
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.toOffset
 import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.CanvasText
 import com.ethran.notable.editor.canvas.CanvasEventBus
+import com.ethran.notable.editor.drawing.CanvasTextRenderer
 import com.ethran.notable.editor.state.ClipboardStore
 import com.ethran.notable.editor.state.History
 import com.ethran.notable.editor.state.Mode
@@ -14,11 +20,17 @@ import com.ethran.notable.editor.state.SelectionState
 import com.ethran.notable.editor.utils.offsetStroke
 import com.ethran.notable.editor.utils.refreshScreen
 import com.ethran.notable.editor.utils.selectImagesAndStrokes
+import com.ethran.notable.editor.utils.SelectionTransformer
+import com.ethran.notable.editor.utils.SpatialKind
+import com.ethran.notable.editor.utils.offsetImage
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +40,11 @@ import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
 
+sealed interface CanvasContentDraft {
+    data class Text(val original: CanvasText?, val value: CanvasText) : CanvasContentDraft
+    data class Link(val original: CanvasLink?, val value: CanvasLink) : CanvasContentDraft
+}
+
 class EditorControlTower(
     private val scope: CoroutineScope,
     val page: PageView,
@@ -35,6 +52,10 @@ class EditorControlTower(
     private val viewModel: EditorViewModel,
     private val clipboardStore: ClipboardStore,
 ) {
+    private val _contentDraft = MutableStateFlow<CanvasContentDraft?>(null)
+    val contentDraft = _contentDraft.asStateFlow()
+    private val _linkActivations = MutableSharedFlow<CanvasLink>(extraBufferCapacity = 1)
+    val linkActivations = _linkActivations.asSharedFlow()
     private var scrollInProgress = Mutex()
     private val logEditorControlTower = ShipBook.getLogger("EditorControlTower")
     private var changePageObserverJob: Job? = null
@@ -128,6 +149,126 @@ class EditorControlTower(
     fun toggleZen() {
         viewModel.onToolbarAction(ToolbarAction.ToggleToolbar)
     }
+
+    fun requestContentAtScreen(position: Offset, stylus: Boolean) {
+        val pagePosition = position / page.zoomLevel.value + page.scroll
+        val linkId = page.pageDataManager.hitTestSpatial(
+            page.currentPageId, pagePosition.x, pagePosition.y, 8f / page.zoomLevel.value,
+            setOf(SpatialKind.LINK),
+        )?.id
+        val link = linkId?.let { id -> page.links.firstOrNull { it.id == id } }
+        when (viewModel.toolbarState.value.mode) {
+            Mode.Text -> {
+                val textId = page.pageDataManager.hitTestSpatial(
+                    page.currentPageId, pagePosition.x, pagePosition.y, 8f / page.zoomLevel.value,
+                    setOf(SpatialKind.TEXT),
+                )?.id
+                val existing = textId?.let { id -> page.texts.firstOrNull { it.id == id } }
+                val value = existing ?: CanvasText(
+                    pageId = page.currentPageId,
+                    markdown = "",
+                    x = pagePosition.x,
+                    y = pagePosition.y,
+                    width = 420f / page.zoomLevel.value,
+                    height = 140f / page.zoomLevel.value,
+                )
+                _contentDraft.value = CanvasContentDraft.Text(existing, value)
+            }
+
+            Mode.Link -> {
+                val value = link ?: CanvasLink(
+                    pageId = page.currentPageId,
+                    label = "Link",
+                    target = "https://",
+                    targetType = com.ethran.notable.data.db.LinkTargetType.URL,
+                    x = pagePosition.x,
+                    y = pagePosition.y,
+                    width = 300f / page.zoomLevel.value,
+                    height = 52f / page.zoomLevel.value,
+                )
+                _contentDraft.value = CanvasContentDraft.Link(link, value)
+            }
+
+            Mode.Select -> if (stylus && link != null) _linkActivations.tryEmit(link)
+            else -> if (!stylus && link != null) _linkActivations.tryEmit(link)
+        }
+        if (_contentDraft.value != null) setIsDrawing(false)
+    }
+
+    fun cancelContentEdit() {
+        _contentDraft.value = null
+        viewModel.updateDrawingState()
+    }
+
+    fun commitText(original: CanvasText?, value: CanvasText) {
+        val now = Date()
+        val committed = value.copy(
+            height = value.height.coerceAtLeast(48f),
+            width = value.width.coerceAtLeast(80f),
+            updatedAt = now,
+        )
+        CanvasTextRenderer.invalidate(committed.id)
+        if (original == null) {
+            page.addTexts(listOf(committed))
+            history.addOperationsToHistory(listOf(Operation.DeleteText(listOf(committed.id))))
+        } else {
+            page.updateTexts(listOf(committed))
+            history.addOperationsToHistory(listOf(Operation.ReplaceText(listOf(committed), listOf(original))))
+        }
+        _contentDraft.value = null
+        refreshContentBounds(original?.let(::textRect), textRect(committed))
+        viewModel.updateDrawingState()
+    }
+
+    fun commitLink(original: CanvasLink?, value: CanvasLink) {
+        val committed = value.copy(
+            label = value.label.ifBlank { value.target },
+            width = value.width.coerceAtLeast(80f),
+            height = value.height.coerceAtLeast(32f),
+            updatedAt = Date(),
+        )
+        if (original == null) {
+            page.addLinks(listOf(committed))
+            history.addOperationsToHistory(listOf(Operation.DeleteLink(listOf(committed.id))))
+        } else {
+            page.updateLinks(listOf(committed))
+            history.addOperationsToHistory(listOf(Operation.ReplaceLink(listOf(committed), listOf(original))))
+        }
+        _contentDraft.value = null
+        refreshContentBounds(original?.let(::linkRect), linkRect(committed))
+        viewModel.updateDrawingState()
+    }
+
+    fun deleteText(item: CanvasText) {
+        page.removeTexts(listOf(item.id))
+        history.addOperationsToHistory(listOf(Operation.AddText(listOf(item))))
+        _contentDraft.value = null
+        refreshContentBounds(null, textRect(item))
+        viewModel.updateDrawingState()
+    }
+
+    fun deleteLink(item: CanvasLink) {
+        page.removeLinks(listOf(item.id))
+        history.addOperationsToHistory(listOf(Operation.AddLink(listOf(item))))
+        _contentDraft.value = null
+        refreshContentBounds(null, linkRect(item))
+        viewModel.updateDrawingState()
+    }
+
+    private fun refreshContentBounds(old: Rect?, new: Rect) {
+        val union = Rect(new)
+        old?.let(union::union)
+        page.drawAreaPageCoordinates(union)
+        scope.launch { CanvasEventBus.refreshUi.emit(Unit) }
+    }
+
+    private fun textRect(item: CanvasText) = Rect(
+        item.x.toInt(), item.y.toInt(), (item.x + item.width).toInt(), (item.y + item.height).toInt()
+    )
+
+    private fun linkRect(item: CanvasLink) = Rect(
+        item.x.toInt(), item.y.toInt(), (item.x + item.width).toInt(), (item.y + item.height).toInt()
+    )
 
     fun getSnapshotOfSelectionState(): SelectionState {
         return viewModel.selectionState
@@ -230,14 +371,64 @@ class EditorControlTower(
     }
 
     fun changeSizeOfSelection(scale: Int) {
-        if (!viewModel.selectionState.selectedImages.isNullOrEmpty())
-            viewModel.selectionState.resizeImages(scale, page)
-        if (!viewModel.selectionState.selectedStrokes.isNullOrEmpty())
-            viewModel.selectionState.resizeStrokes(scale, scope, page)
-        // Emit a refresh signal to update UI
-        scope.launch {
-            CanvasEventBus.refreshUi.emit(Unit)
+        val factor = (1f + scale / 100f).coerceAtLeast(0.05f)
+        viewModel.selectionState.previewScaleX *= factor
+        viewModel.selectionState.previewScaleY *= factor
+    }
+
+    fun commitPreviewTransform() {
+        commitSelectionTransform(
+            scaleX = viewModel.selectionState.previewScaleX,
+            scaleY = viewModel.selectionState.previewScaleY,
+            rotation = viewModel.selectionState.previewRotation,
+        )
+    }
+
+    fun rotateSelection(degrees: Float) = commitSelectionTransform(rotation = degrees)
+
+    fun flipSelection(horizontal: Boolean) = commitSelectionTransform(
+        scaleX = if (horizontal) -1f else 1f,
+        scaleY = if (horizontal) 1f else -1f,
+        flipHorizontal = horizontal,
+        flipVertical = !horizontal,
+    )
+
+    private fun commitSelectionTransform(
+        scaleX: Float = 1f,
+        scaleY: Float = 1f,
+        rotation: Float = 0f,
+        flipHorizontal: Boolean = false,
+        flipVertical: Boolean = false,
+    ) {
+        val state = viewModel.selectionState
+        val originalStrokes = state.selectedStrokes.orEmpty()
+        val originalImages = state.selectedImages.orEmpty()
+        if (originalStrokes.isEmpty() && originalImages.isEmpty()) return
+        val offset = state.selectionDisplaceOffset?.toOffset() ?: Offset.Zero
+        val positionedStrokes = originalStrokes.map { offsetStroke(it, offset) }
+        val positionedImages = originalImages.map { offsetImage(it, offset) }
+        val bounds = SelectionTransformer.selectionBounds(positionedStrokes, positionedImages)
+        val matrix = Matrix().apply {
+            postScale(scaleX, scaleY, bounds.centerX(), bounds.centerY())
+            postRotate(rotation, bounds.centerX(), bounds.centerY())
         }
+        val transformedStrokes = positionedStrokes.map { SelectionTransformer.transformStroke(it, matrix) }
+        val transformedImages = positionedImages.map {
+            SelectionTransformer.transformImage(it, matrix, flipHorizontal, flipVertical)
+        }
+        val operations = mutableListOf<Operation>()
+        if (originalStrokes.isNotEmpty()) {
+            page.replaceStrokes(originalStrokes, transformedStrokes)
+            operations += Operation.ReplaceStrokes(transformedStrokes, originalStrokes)
+        }
+        if (originalImages.isNotEmpty()) {
+            page.replaceImages(originalImages, transformedImages)
+            operations += Operation.ReplaceImages(transformedImages, originalImages)
+        }
+        history.addOperationsToHistory(operations)
+        state.reset()
+        selectImagesAndStrokes(scope, page, viewModel, transformedImages, transformedStrokes)
+        scope.launch { CanvasEventBus.refreshUi.emit(Unit) }
     }
 
     fun duplicateSelection() {

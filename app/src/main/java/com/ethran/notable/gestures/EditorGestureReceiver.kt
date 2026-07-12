@@ -189,8 +189,8 @@ fun EditorGestureReceiver(
 
                         if (gestureState.isOneFinger()) {
                             if (gestureState.isOneFingerTap()) {
-                                if (withTimeoutOrNull(DOUBLE_TAP_TIMEOUT_MS) {
-                                        val secondDown = awaitFirstDown()
+                                val doubleTap = withTimeoutOrNull(DOUBLE_TAP_TIMEOUT_MS) {
+                                    val secondDown = awaitFirstDown()
                                         val deltaTime =
                                             System.currentTimeMillis() - gestureState.lastTimestamp
                                         log.v("Second down detected: ${secondDown.type}, position: ${secondDown.position}, deltaTime: $deltaTime")
@@ -211,9 +211,14 @@ fun EditorGestureReceiver(
                                             scope = coroutineScope,
                                             controlTower = controlTower
                                         )
-
-
-                                    } != null) return@awaitEachGesture
+                                    }
+                                if (doubleTap != null) return@awaitEachGesture
+                                gestureState.getFirstPosition()?.let {
+                                    controlTower.requestContentAtScreen(
+                                        Offset(it.x.toFloat(), it.y.toFloat()),
+                                        stylus = false,
+                                    )
+                                }
                             }
                         } else if (gestureState.isTwoFingers()) {
                             log.v("Two finger tap")

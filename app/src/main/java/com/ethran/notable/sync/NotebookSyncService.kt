@@ -1,5 +1,6 @@
 package com.ethran.notable.sync
 
+import android.content.Context
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.Page
@@ -7,6 +8,8 @@ import com.ethran.notable.data.ensureBackgroundsFolder
 import com.ethran.notable.data.ensureImagesFolder
 import com.ethran.notable.io.safeLeafName
 import com.ethran.notable.sync.serializers.NotebookSerializer
+import com.ethran.notable.sync.serializers.PageContent
+import com.ethran.notable.data.db.AttachmentStorageMode
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
 import com.ethran.notable.utils.flatMap
@@ -17,16 +20,18 @@ import com.ethran.notable.utils.plus
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @Singleton
 class NotebookSyncService @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val appRepository: AppRepository,
     private val reporter: SyncProgressReporter
 ) {
     private val sLog = SyncLogger
 
     suspend fun applyRemoteDeletions(
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         maxAgeDays: Long
     ): AppResult<Set<String>, DomainError> {
         sLog.i(TAG, "Applying remote deletions...")
@@ -86,7 +91,7 @@ class NotebookSyncService @Inject constructor(
     }
 
     fun detectAndUploadLocalDeletions(
-        webdavClient: WebDAVClient, settings: SyncSettings, preDownloadNotebookIds: Set<String>
+        webdavClient: RemoteSyncProvider, settings: SyncSettings, preDownloadNotebookIds: Set<String>
     ): AppResult<Int, DomainError> {
         sLog.i(TAG, "Detecting local deletions...")
         val syncedNotebookIds = settings.syncedNotebookIds
@@ -121,7 +126,7 @@ class NotebookSyncService @Inject constructor(
     }
 
     suspend fun downloadNewNotebooks(
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         tombstonedIds: Set<String>,
         settings: SyncSettings,
         preDownloadNotebookIds: Set<String>
@@ -158,7 +163,7 @@ class NotebookSyncService @Inject constructor(
 
     suspend fun uploadNotebook(
         notebook: Notebook,
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         manifestIfMatch: String? = null
     ): AppResult<Unit, DomainError> {
         val notebookId = notebook.id
@@ -168,6 +173,8 @@ class NotebookSyncService @Inject constructor(
             webdavClient.createCollection(SyncPaths.imagesDir(notebookId))
         }.flatMap {
             webdavClient.createCollection(SyncPaths.backgroundsDir(notebookId))
+        }.flatMap {
+            webdavClient.createCollection(SyncPaths.attachmentsDir(notebookId))
         }.flatMap {
             val manifestJson = NotebookSerializer.serializeManifest(notebook)
             webdavClient.putFile(
@@ -198,17 +205,21 @@ class NotebookSyncService @Inject constructor(
         }
     }
 
+    @Suppress("CyclomaticComplexMethod")
     internal suspend fun uploadPage(
         page: Page,
         notebookId: String,
-        webdavClient: WebDAVClient
+        webdavClient: RemoteSyncProvider
     ): AppResult<Unit, DomainError> {
         val pageWithData =
             appRepository.pageRepository.getWithDataById(page.id) ?: return AppResult.Error(
                 DomainError.DatabaseError("Page data not found for page ID: ${page.id}")
             )
         val pageJson = NotebookSerializer.serializePage(
-            page, pageWithData.strokes, pageWithData.images
+            PageContent(
+                page, pageWithData.strokes, pageWithData.images, pageWithData.texts,
+                pageWithData.links, pageWithData.attachments,
+            )
         )
         return webdavClient.putFile(
             SyncPaths.pageFile(notebookId, page.id), pageJson.toByteArray(), "application/json"
@@ -229,6 +240,20 @@ class NotebookSyncService @Inject constructor(
                         }
                     } else {
                         sLog.w(TAG, "Image file not found: ${image.uri}")
+                    }
+                }
+            }
+
+            for (attachment in pageWithData.attachments) {
+                if (attachment.storageMode != AttachmentStorageMode.MANAGED) continue
+                val relativePath = attachment.relativePath ?: continue
+                val filename = safeLeafName(relativePath) ?: continue
+                val localFile = File(context.filesDir, "attachments/$filename")
+                if (localFile.exists()) {
+                    val remotePath = SyncPaths.attachmentFile(notebookId, filename)
+                    if (!webdavClient.exists(remotePath)) {
+                        webdavClient.putFile(remotePath, localFile, attachment.mimeType)
+                            .onError { error -> persistentError = persistentError?.plus(error) ?: error }
                     }
                 }
             }
@@ -263,7 +288,7 @@ class NotebookSyncService @Inject constructor(
 
     suspend fun downloadNotebook(
         notebookId: String,
-        webdavClient: WebDAVClient
+        webdavClient: RemoteSyncProvider
     ): AppResult<Unit, DomainError> {
         sLog.i(TAG, "Downloading notebook ID: $notebookId")
 
@@ -306,7 +331,7 @@ class NotebookSyncService @Inject constructor(
     internal suspend fun downloadPage(
         pageId: String,
         notebookId: String,
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         preloadedBytes: ByteArray? = null
     ): AppResult<Unit, DomainError> {
 
@@ -317,8 +342,14 @@ class NotebookSyncService @Inject constructor(
 
         // 2. Deserialize (Early Return on corrupted JSON)
         val pageJson = pageBytes.decodeToString()
-        val (page, strokes, images) = NotebookSerializer.deserializePage(pageJson)
+        val content = NotebookSerializer.deserializePage(pageJson)
             .onFailure { return AppResult.Error(it) }
+        val page = content.page
+        val strokes = content.strokes
+        val images = content.images
+        val texts = content.texts
+        val links = content.links
+        val attachments = content.attachments
 
         var persistentError: DomainError? = null
 
@@ -350,6 +381,26 @@ class NotebookSyncService @Inject constructor(
                 image.copy(uri = localFile.absolutePath)
             } else {
                 image
+            }
+        }
+
+        val updatedAttachments = attachments.map { attachment ->
+            if (attachment.storageMode != AttachmentStorageMode.MANAGED || attachment.relativePath == null) {
+                attachment
+            } else {
+                val filename = safeLeafName(attachment.relativePath)
+                if (filename == null) {
+                    persistentError = persistentError?.plus(DomainError.SyncError("Unsafe attachment filename"))
+                    attachment.copy(relativePath = null)
+                } else {
+                    val directory = File(context.filesDir, "attachments").apply { mkdirs() }
+                    val localFile = File(directory, filename)
+                    if (!localFile.exists()) {
+                        webdavClient.getFile(SyncPaths.attachmentFile(notebookId, filename), localFile)
+                            .onError { error -> persistentError = persistentError?.plus(error) ?: error }
+                    }
+                    attachment.copy(relativePath = filename)
+                }
             }
         }
 
@@ -386,6 +437,9 @@ class NotebookSyncService @Inject constructor(
                     )
                 appRepository.strokeRepository.deleteAll(pageWithData.strokes.map { it.id })
                 appRepository.imageRepository.deleteAll(pageWithData.images.map { it.id })
+                appRepository.canvasTextRepository.delete(pageWithData.texts.map { it.id })
+                appRepository.canvasLinkRepository.delete(pageWithData.links.map { it.id })
+                appRepository.attachmentRepository.delete(pageWithData.attachments.map { it.id })
                 appRepository.pageRepository.update(pageToSave)
             } else {
                 appRepository.pageRepository.create(pageToSave)
@@ -393,6 +447,9 @@ class NotebookSyncService @Inject constructor(
 
             appRepository.strokeRepository.create(strokes)
             appRepository.imageRepository.create(updatedImages)
+            appRepository.canvasTextRepository.create(texts)
+            appRepository.canvasLinkRepository.create(links)
+            appRepository.attachmentRepository.create(updatedAttachments)
 
         } catch (e: Exception) {
             val dbError = DomainError.DatabaseError("Failed to save page $pageId: ${e.message}")

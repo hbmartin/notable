@@ -3,6 +3,9 @@ package com.ethran.notable.data
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.AppDatabase
 import com.ethran.notable.data.db.BookRepository
+import com.ethran.notable.data.db.AttachmentRepository
+import com.ethran.notable.data.db.CanvasLinkRepository
+import com.ethran.notable.data.db.CanvasTextRepository
 import com.ethran.notable.data.db.FolderRepository
 import com.ethran.notable.data.db.ImageRepository
 import com.ethran.notable.data.db.KvProxy
@@ -29,6 +32,9 @@ class AppRepository @Inject constructor(
     val pageRepository: PageRepository,
     val strokeRepository: StrokeRepository,
     val imageRepository: ImageRepository,
+    val canvasTextRepository: CanvasTextRepository,
+    val canvasLinkRepository: CanvasLinkRepository,
+    val attachmentRepository: AttachmentRepository,
     val folderRepository: FolderRepository,
     val kvProxy: KvProxy
 ) {
@@ -97,6 +103,41 @@ class AppRepository @Inject constructor(
                 pageId = duplicatedPage.id,
                 updatedAt = Date(),
                 createdAt = Date()
+            )
+        })
+        canvasTextRepository.create(pageWithData.texts.map {
+            it.copy(
+                id = UUID.randomUUID().toString(),
+                pageId = duplicatedPage.id,
+                updatedAt = Date(),
+                createdAt = Date(),
+            )
+        })
+        val attachmentIdMap = pageWithData.attachments.associate { it.id to UUID.randomUUID().toString() }
+        attachmentRepository.create(pageWithData.attachments.map { attachment ->
+            attachment.copy(
+                id = attachmentIdMap.getValue(attachment.id),
+                pageId = duplicatedPage.id,
+                updatedAt = Date(),
+                createdAt = Date(),
+            )
+        })
+        pageWithData.attachments.forEach { attachment ->
+            attachmentRepository.getBinding(attachment.id)?.let { binding ->
+                attachmentRepository.putBinding(
+                    binding.copy(attachmentId = attachmentIdMap.getValue(attachment.id), updatedAt = Date())
+                )
+            }
+        }
+        canvasLinkRepository.create(pageWithData.links.map {
+            it.copy(
+                id = UUID.randomUUID().toString(),
+                pageId = duplicatedPage.id,
+                target = if (it.targetType == com.ethran.notable.data.db.LinkTargetType.PDF_ATTACHMENT) {
+                    attachmentIdMap[it.target] ?: it.target
+                } else it.target,
+                updatedAt = Date(),
+                createdAt = Date(),
             )
         })
         val notebookId = pageWithData.page.notebookId

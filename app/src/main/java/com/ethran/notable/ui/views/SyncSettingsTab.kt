@@ -1,6 +1,11 @@
 package com.ethran.notable.ui.views
 
 import android.content.res.Configuration
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -65,6 +71,7 @@ import com.ethran.notable.sync.ConnectionTestResult
 import com.ethran.notable.sync.ConnectivityStatus
 import com.ethran.notable.sync.SyncLogger
 import com.ethran.notable.sync.SyncSettings
+import com.ethran.notable.sync.SyncProviderType
 import com.ethran.notable.sync.SyncState
 import com.ethran.notable.sync.SyncStep
 import com.ethran.notable.ui.components.SettingToggleRow
@@ -73,6 +80,8 @@ import com.ethran.notable.ui.theme.InkaTheme
 import com.ethran.notable.ui.viewmodels.SyncSettingsUiState
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 
 data class SyncDangerCallbacks(
     val onForceUploadRequested: (Boolean) -> Unit = {},
@@ -88,6 +97,9 @@ data class SyncSettingsCallbacks(
     val onTestConnection: () -> Unit = {},
     val onManualSync: () -> Unit = {},
     val onClearSyncLogs: () -> Unit = {},
+    val onProviderSwitch: (SyncProviderType) -> Unit = {},
+    val onAuthorizeGoogleDrive: () -> Unit = {},
+    val onGoogleDriveAuthorizationResult: (android.content.Intent?) -> Unit = {},
     val danger: SyncDangerCallbacks = SyncDangerCallbacks(),
 )
 
@@ -100,15 +112,29 @@ fun SyncSettings(
     state: SyncSettingsUiState,
     callbacks: SyncSettingsCallbacks,
 ) {
+    val authorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        callbacks.onGoogleDriveAuthorizationResult(result.data)
+    }
+    LaunchedEffect(state.driveAuthorizationPendingIntent) {
+        state.driveAuthorizationPendingIntent?.let { pending ->
+            authorizationLauncher.launch(IntentSenderRequest.Builder(pending).build())
+        }
+    }
     // 1. State to track if the dialog should be shown.
     // Defaults to true when the screen is first opened.
     var showWarningDialog by rememberSaveable { mutableStateOf(true) }
 
-    val isConfigured by remember(state.isPasswordSaved, state.syncSettings.serverUrl) {
-        derivedStateOf { state.isPasswordSaved && state.syncSettings.serverUrl.isNotEmpty() }
+    val isConfigured by remember(state.isPasswordSaved, state.syncSettings) {
+        derivedStateOf {
+            when (state.syncSettings.providerType) {
+                SyncProviderType.WEBDAV -> state.isPasswordSaved && state.syncSettings.serverUrl.isNotEmpty()
+                SyncProviderType.GOOGLE_DRIVE -> !state.syncSettings.googleDriveFolderId.isNullOrBlank()
+            }
+        }
     }
     val serverSectionTitle = if (isConfigured) {
-        stringResource(R.string.sync_server_configured, state.syncSettings.serverUrl.take(25))
+        if (state.syncSettings.providerType == SyncProviderType.GOOGLE_DRIVE) "Google Drive configured"
+        else stringResource(R.string.sync_server_configured, state.syncSettings.serverUrl.take(25))
     } else {
         stringResource(R.string.sync_connection_setup)
     }
@@ -241,7 +267,9 @@ private fun ConnectionSection(
             isPasswordSaved = state.isPasswordSaved,
             passwordVisible = state.passwordVisible,
             onUpdate = callbacks.onUpdateSyncSettings,
-            onTogglePasswordVisibility = callbacks.onTogglePasswordVisibility
+            onTogglePasswordVisibility = callbacks.onTogglePasswordVisibility,
+            onProviderSwitch = callbacks.onProviderSwitch,
+            onAuthorizeGoogleDrive = callbacks.onAuthorizeGoogleDrive,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -250,7 +278,10 @@ private fun ConnectionSection(
             EInkActionButton(
                 text = stringResource(R.string.sync_save_credentials),
                 onClick = callbacks.onSaveCredentials,
-                enabled = state.credentialsDirty && state.syncSettings.username.isNotEmpty(),
+                enabled = state.credentialsDirty && when (state.syncSettings.providerType) {
+                    SyncProviderType.WEBDAV -> state.syncSettings.username.isNotEmpty()
+                    SyncProviderType.GOOGLE_DRIVE -> !state.syncSettings.googleDriveFolderId.isNullOrBlank()
+                },
                 modifier = Modifier.weight(1f),
                 isBold = true
             )
@@ -259,7 +290,10 @@ private fun ConnectionSection(
                     R.string.sync_test_connection
                 ),
                 onClick = callbacks.onTestConnection,
-                enabled = !state.testingConnection && state.syncSettings.serverUrl.isNotEmpty(),
+                enabled = !state.testingConnection && when (state.syncSettings.providerType) {
+                    SyncProviderType.WEBDAV -> state.syncSettings.serverUrl.isNotEmpty()
+                    SyncProviderType.GOOGLE_DRIVE -> !state.syncSettings.googleDriveFolderId.isNullOrBlank()
+                },
                 modifier = Modifier.weight(1f),
                 isSecondary = true
             )
@@ -496,13 +530,94 @@ fun ConnectionStatusText(result: AppResult<ConnectionTestResult, DomainError>) {
 }
 
 @Composable
+@Suppress("LongMethod")
 fun SyncCredentialFields(
     settings: SyncSettings,
     isPasswordSaved: Boolean,
     passwordVisible: Boolean,
     onUpdate: (SyncSettings, Boolean) -> Unit,
-    onTogglePasswordVisibility: () -> Unit
+    onTogglePasswordVisibility: () -> Unit,
+    onProviderSwitch: (SyncProviderType) -> Unit,
+    onAuthorizeGoogleDrive: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val playServicesAvailable = remember {
+        GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
+    }
+    val driveFolderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            val folderId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+            if (!folderId.isNullOrBlank()) {
+                onUpdate(settings.copy(googleDriveFolderId = folderId), false)
+            }
+        }
+    }
+    var pendingProvider by remember { mutableStateOf<SyncProviderType?>(null) }
+    pendingProvider?.let { provider ->
+        AlertDialog(
+            onDismissRequest = { pendingProvider = null },
+            title = { Text("Switch sync provider?") },
+            text = { Text("Notable will perform a final pull from the current provider. Sync is then disabled until the new destination is configured and confirmed.") },
+            confirmButton = {
+                Button(onClick = {
+                    pendingProvider = null
+                    onProviderSwitch(provider)
+                }) { Text("Switch") }
+            },
+            dismissButton = { Button(onClick = { pendingProvider = null }) { Text("Cancel") } },
+        )
+    }
+    Text("Sync provider", fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        EInkActionButton(
+            text = if (settings.providerType == SyncProviderType.WEBDAV) "✓ WebDAV" else "WebDAV",
+            onClick = {
+                if (settings.providerType != SyncProviderType.WEBDAV) pendingProvider = SyncProviderType.WEBDAV
+            },
+            modifier = Modifier.weight(1f),
+        )
+        EInkActionButton(
+            text = if (settings.providerType == SyncProviderType.GOOGLE_DRIVE) "✓ Google Drive" else "Google Drive",
+            onClick = {
+                if (settings.providerType != SyncProviderType.GOOGLE_DRIVE) pendingProvider = SyncProviderType.GOOGLE_DRIVE
+            },
+            modifier = Modifier.weight(1f),
+        )
+    }
+    Spacer(modifier = Modifier.height(16.dp))
+
+    if (settings.providerType == SyncProviderType.GOOGLE_DRIVE) {
+        Text(
+            if (playServicesAvailable) "Choose a folder in the Android file picker’s Google Drive location. Authorization uses the drive.file scope."
+            else "Google Drive is unavailable because Google Play services are missing. WebDAV remains available.",
+            style = MaterialTheme.typography.caption,
+        )
+        EInkActionButton(
+            text = "Choose Drive folder",
+            onClick = { driveFolderPicker.launch(null) },
+            enabled = playServicesAvailable,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        EInkActionButton(
+            text = "Authorize Google Drive",
+            onClick = onAuthorizeGoogleDrive,
+            enabled = playServicesAvailable,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        EInkTextField(
+            label = "Google account",
+            value = settings.googleAccountName.orEmpty(),
+            onValueChange = { onUpdate(settings.copy(googleAccountName = it.ifBlank { null }), false) },
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        EInkTextField(
+            label = "Drive folder ID",
+            value = settings.googleDriveFolderId.orEmpty(),
+            onValueChange = { onUpdate(settings.copy(googleDriveFolderId = it.ifBlank { null }), false) },
+        )
+        return
+    }
+
     EInkTextField(
         label = stringResource(R.string.sync_server_url_label),
         value = settings.serverUrl,

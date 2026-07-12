@@ -4,6 +4,11 @@ import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.data.db.Stroke
+import com.ethran.notable.data.db.CanvasText
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.Attachment
+import com.ethran.notable.data.db.AttachmentStorageMode
+import com.ethran.notable.data.db.LinkTargetType
 import com.ethran.notable.data.db.decodeStrokePoints
 import com.ethran.notable.data.db.encodeStrokePoints
 import com.ethran.notable.editor.utils.Pen
@@ -18,6 +23,15 @@ import java.time.Instant
 import java.time.format.DateTimeParseException
 import java.util.Base64
 import java.util.Date
+
+data class PageContent(
+    val page: Page,
+    val strokes: List<Stroke>,
+    val images: List<Image>,
+    val texts: List<CanvasText> = emptyList(),
+    val links: List<CanvasLink> = emptyList(),
+    val attachments: List<Attachment> = emptyList(),
+)
 
 /**
  * Serializer for notebooks, pages, strokes, and images to/from JSON format for WebDAV sync.
@@ -94,7 +108,13 @@ object NotebookSerializer {
      * Serialize a page with its strokes and images to JSON format.
      * Stroke points are embedded as base64-encoded SB1 binary format.
      */
-    fun serializePage(page: Page, strokes: List<Stroke>, images: List<Image>): String {
+    fun serializePage(content: PageContent): String {
+        val page = content.page
+        val strokes = content.strokes
+        val images = content.images
+        val texts = content.texts
+        val links = content.links
+        val attachments = content.attachments
         val strokeDtos = strokes.map { stroke ->
             val binaryData = encodeStrokePoints(stroke.points)
             val base64Data = Base64.getEncoder().encodeToString(binaryData)
@@ -122,6 +142,9 @@ object NotebookSerializer {
                 y = image.y,
                 width = image.width,
                 height = image.height,
+                rotation = image.rotation,
+                flipHorizontal = image.flipHorizontal,
+                flipVertical = image.flipVertical,
                 uri = convertToRelativeUri(image.uri),
                 createdAt = image.createdAt.toInstant().toString(),
                 updatedAt = image.updatedAt.toInstant().toString()
@@ -129,7 +152,7 @@ object NotebookSerializer {
         }
 
         val pageDto = PageDto(
-            version = 1,
+            version = 2,
             id = page.id,
             notebookId = page.notebookId,
             background = page.background,
@@ -139,17 +162,42 @@ object NotebookSerializer {
             createdAt = page.createdAt.toInstant().toString(),
             updatedAt = page.updatedAt.toInstant().toString(),
             strokes = strokeDtos,
-            images = imageDtos
+            images = imageDtos,
+            texts = texts.map { item ->
+                CanvasTextDto(
+                    item.id, item.markdown, item.x, item.y, item.width, item.height,
+                    item.fontSize, item.color, item.alignment, item.backgroundColor,
+                    item.createdAt.toInstant().toString(), item.updatedAt.toInstant().toString(),
+                )
+            },
+            links = links.map { item ->
+                CanvasLinkDto(
+                    item.id, item.label, item.target, item.targetType.name, item.x, item.y,
+                    item.width, item.height, item.color, item.fontSize,
+                    item.createdAt.toInstant().toString(), item.updatedAt.toInstant().toString(),
+                )
+            },
+            attachments = attachments.map { item ->
+                AttachmentDto(
+                    item.id, item.displayName, item.mimeType, item.storageMode.name,
+                    item.relativePath, item.checksum, item.size,
+                    item.createdAt.toInstant().toString(), item.updatedAt.toInstant().toString(),
+                )
+            },
         )
 
         return json.encodeToString(pageDto)
     }
 
+    /** Backward-compatible call site for v1 tests/importers; emits the v2 envelope. */
+    fun serializePage(page: Page, strokes: List<Stroke>, images: List<Image>): String =
+        serializePage(PageContent(page, strokes, images))
+
     /**
      * Deserialize page JSON with embedded base64-encoded SB1 binary stroke data safely.
      * Corrupted individual strokes or images are skipped to save the rest of the page.
      */
-    fun deserializePage(jsonString: String): AppResult<Triple<Page, List<Stroke>, List<Image>>, DomainError> {
+    fun deserializePage(jsonString: String): AppResult<PageContent, DomainError> {
         return try {
             val pageDto = json.decodeFromString<PageDto>(jsonString)
             val pageCreated = parseIso8601(pageDto.createdAt)
@@ -219,6 +267,9 @@ object NotebookSerializer {
                         y = imageDto.y,
                         width = imageDto.width,
                         height = imageDto.height,
+                        rotation = imageDto.rotation,
+                        flipHorizontal = imageDto.flipHorizontal,
+                        flipVertical = imageDto.flipVertical,
                         uri = imageDto.uri,
                         pageId = pageDto.id,
                         createdAt = created,
@@ -230,7 +281,41 @@ object NotebookSerializer {
                 }
             }
 
-            AppResult.Success(Triple(page, strokes, images))
+            val texts = pageDto.texts.mapNotNull { dto ->
+                val created = parseIso8601(dto.createdAt) ?: return@mapNotNull null
+                val updated = parseIso8601(dto.updatedAt) ?: return@mapNotNull null
+                CanvasText(
+                    id = dto.id, pageId = page.id, markdown = dto.markdown,
+                    x = dto.x, y = dto.y, width = dto.width, height = dto.height,
+                    fontSize = dto.fontSize, color = dto.color, alignment = dto.alignment,
+                    backgroundColor = dto.backgroundColor, createdAt = created, updatedAt = updated,
+                )
+            }
+            val links = pageDto.links.mapNotNull { dto ->
+                val created = parseIso8601(dto.createdAt) ?: return@mapNotNull null
+                val updated = parseIso8601(dto.updatedAt) ?: return@mapNotNull null
+                val targetType = runCatching { LinkTargetType.valueOf(dto.targetType) }.getOrNull()
+                    ?: return@mapNotNull null
+                CanvasLink(
+                    id = dto.id, pageId = page.id, label = dto.label, target = dto.target,
+                    targetType = targetType, x = dto.x, y = dto.y, width = dto.width,
+                    height = dto.height, color = dto.color, fontSize = dto.fontSize,
+                    createdAt = created, updatedAt = updated,
+                )
+            }
+            val attachments = pageDto.attachments.mapNotNull { dto ->
+                val created = parseIso8601(dto.createdAt) ?: return@mapNotNull null
+                val updated = parseIso8601(dto.updatedAt) ?: return@mapNotNull null
+                val mode = runCatching { AttachmentStorageMode.valueOf(dto.storageMode) }.getOrNull()
+                    ?: return@mapNotNull null
+                Attachment(
+                    id = dto.id, pageId = page.id, displayName = dto.displayName,
+                    mimeType = dto.mimeType, storageMode = mode, relativePath = dto.relativePath,
+                    checksum = dto.checksum, size = dto.size, createdAt = created, updatedAt = updated,
+                )
+            }
+
+            AppResult.Success(PageContent(page, strokes, images, texts, links, attachments))
         } catch (e: SerializationException) {
             AppResult.Error(DomainError.UnexpectedState("Failed to decode page JSON: ${e.message}"))
         } catch (e: Exception) {
@@ -326,7 +411,10 @@ object NotebookSerializer {
         val createdAt: String,
         val updatedAt: String,
         val strokes: List<StrokeDto>,
-        val images: List<ImageDto>
+        val images: List<ImageDto>,
+        val texts: List<CanvasTextDto> = emptyList(),
+        val links: List<CanvasLinkDto> = emptyList(),
+        val attachments: List<AttachmentDto> = emptyList(),
     )
 
     @Serializable
@@ -352,8 +440,32 @@ object NotebookSerializer {
         val y: Int,
         val width: Int,
         val height: Int,
+        val rotation: Float = 0f,
+        val flipHorizontal: Boolean = false,
+        val flipVertical: Boolean = false,
         val uri: String?,
         val createdAt: String,
         val updatedAt: String
+    )
+
+    @Serializable
+    private data class CanvasTextDto(
+        val id: String, val markdown: String, val x: Float, val y: Float,
+        val width: Float, val height: Float, val fontSize: Float, val color: Int,
+        val alignment: String, val backgroundColor: Int, val createdAt: String, val updatedAt: String,
+    )
+
+    @Serializable
+    private data class CanvasLinkDto(
+        val id: String, val label: String, val target: String, val targetType: String,
+        val x: Float, val y: Float, val width: Float, val height: Float,
+        val color: Int, val fontSize: Float, val createdAt: String, val updatedAt: String,
+    )
+
+    @Serializable
+    private data class AttachmentDto(
+        val id: String, val displayName: String, val mimeType: String, val storageMode: String,
+        val relativePath: String?, val checksum: String?, val size: Long?,
+        val createdAt: String, val updatedAt: String,
     )
 }

@@ -53,8 +53,19 @@ class Converters {
 
 
 @Database(
-    entities = [Folder::class, Notebook::class, Page::class, Stroke::class, Image::class, Kv::class],
-    version = 34,
+    entities = [
+        Folder::class,
+        Notebook::class,
+        Page::class,
+        Stroke::class,
+        Image::class,
+        CanvasText::class,
+        CanvasLink::class,
+        Attachment::class,
+        AttachmentBinding::class,
+        Kv::class,
+    ],
+    version = 35,
     autoMigrations = [
         AutoMigration(19, 20),
         AutoMigration(20, 21),
@@ -69,7 +80,8 @@ class Converters {
         AutoMigration(30, 31, spec = AutoMigration30to31::class),
         AutoMigration(31, 32, spec = AutoMigration31to32::class),
         AutoMigration(32, 33),
-        AutoMigration(33, 34)
+        AutoMigration(33, 34),
+        AutoMigration(34, 35),
     ], exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -81,6 +93,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pageDao(): PageDao
     abstract fun strokeDao(): StrokeDao
     abstract fun ImageDao(): ImageDao
+    abstract fun canvasTextDao(): CanvasTextDao
+    abstract fun canvasLinkDao(): CanvasLinkDao
+    abstract fun attachmentDao(): AttachmentDao
+    abstract fun attachmentBindingDao(): AttachmentBindingDao
 }
 
 @Module
@@ -133,6 +149,18 @@ object DatabaseModule {
     @Provides
     fun provideImageDao(db: AppDatabase): ImageDao =
         db.ImageDao()
+
+    @Provides
+    fun provideCanvasTextDao(db: AppDatabase): CanvasTextDao = db.canvasTextDao()
+
+    @Provides
+    fun provideCanvasLinkDao(db: AppDatabase): CanvasLinkDao = db.canvasLinkDao()
+
+    @Provides
+    fun provideAttachmentDao(db: AppDatabase): AttachmentDao = db.attachmentDao()
+
+    @Provides
+    fun provideAttachmentBindingDao(db: AppDatabase): AttachmentBindingDao = db.attachmentBindingDao()
 
 
 

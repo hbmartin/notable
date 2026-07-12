@@ -8,6 +8,7 @@ import android.graphics.Region
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.toOffset
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.toRect
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.editor.EditorViewModel
@@ -244,9 +245,15 @@ fun handleSelect(
         val selectionPath = pointsToPath(points)
         selectionPath.close()
 
+        val candidateBounds = RectF().also { selectionPath.computeBounds(it, true) }.toRect()
+        val strokeCandidates = page.pageDataManager
+            .getStrokesInRectangle(candidateBounds, page.currentPageId).orEmpty()
+        val imageCandidates = page.pageDataManager
+            .getImagesInRectangle(candidateBounds, page.currentPageId).orEmpty()
+
         // get the selected strokes and images
-        val selectedStrokes = selectStrokesFromPath(page.strokes, selectionPath)
-        val selectedImages = selectImagesFromPath(page.images, selectionPath)
+        val selectedStrokes = selectStrokesFromPath(strokeCandidates, selectionPath)
+        val selectedImages = selectImagesFromPath(imageCandidates, selectionPath)
 
         if (selectedStrokes.isEmpty() && selectedImages.isEmpty()) return
 
