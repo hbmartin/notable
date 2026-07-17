@@ -168,6 +168,9 @@ class EditorSelectionThreadSafetyTests {
             pageRepository = pageRepository,
             strokeRepository = strokeRepository,
             imageRepository = imageRepository,
+            canvasTextRepository = com.ethran.notable.data.db.CanvasTextRepository(db.canvasTextDao()),
+            canvasLinkRepository = com.ethran.notable.data.db.CanvasLinkRepository(db.canvasLinkDao()),
+            attachmentRepository = com.ethran.notable.data.db.AttachmentRepository(db.attachmentDao(), db.attachmentBindingDao()),
             folderRepository = folderRepository,
             kvProxy = kvProxy,
         )

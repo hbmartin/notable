@@ -6,6 +6,7 @@ const val SYNC_SETTINGS_KEY = "SYNC_SETTINGS"
 
 @Serializable
 data class SyncSettings(
+    val providerType: SyncProviderType = SyncProviderType.WEBDAV,
     val syncEnabled: Boolean = false,
     val serverUrl: String = "",
     val username: String = "",
@@ -17,4 +18,7 @@ data class SyncSettings(
     val wifiOnly: Boolean = false,
     val uploadOnly: Boolean = false,
     val syncedNotebookIds: Set<String> = emptySet(),
+    val googleDriveFolderId: String? = null,
+    val googleAccountName: String? = null,
+    val remoteNamespaceVersion: Int = 1,
 )

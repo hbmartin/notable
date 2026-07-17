@@ -1,9 +1,13 @@
 package com.ethran.notable.editor
 
 import android.content.Context
+import android.content.Intent
+import android.database.Cursor
+import android.provider.OpenableColumns
 import android.graphics.Color
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ethran.notable.R
@@ -15,6 +19,11 @@ import com.ethran.notable.data.datastore.EditorSettingCacheManager
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.getPageIndex
 import com.ethran.notable.data.db.getParentFolder
+import com.ethran.notable.data.db.AttachmentStorageMode
+import com.ethran.notable.data.db.Attachment
+import com.ethran.notable.data.db.AttachmentBinding
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.LinkTargetType
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.di.ApplicationScope
 import com.ethran.notable.editor.EditorViewModel.Companion.DEFAULT_PEN_SETTINGS
@@ -51,6 +60,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Date
+import java.io.File
+import java.security.MessageDigest
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -87,7 +99,7 @@ data class ToolbarUiState(
     // Canvas / drawing
     val mode: Mode = Mode.Draw,
     val pen: Pen = Pen.BALLPEN,
-    val eraser: Eraser = Eraser.PEN,
+    val eraser: Eraser = Eraser.PARTIAL,
     // Missing entries are backfilled from DEFAULT_PEN_SETTINGS by consumers
     // (see OnyxInputHandler.currentPenSetting), so an incomplete map is safe.
     val penSettings: Map<String, PenSetting> = DEFAULT_PEN_SETTINGS,
@@ -98,7 +110,7 @@ data class ToolbarUiState(
     val activePenBattery: Int? = null,
 ) {
     val isDrawingAllowed: Boolean
-        get() = !isSelectionActive &&
+        get() = mode != Mode.Text && mode != Mode.Link && !isSelectionActive &&
                 !(isMenuOpen || isStrokeSelectionOpen || isBackgroundSelectorModalOpen)
                 && !isQuickNavOpen
 }
@@ -118,6 +130,7 @@ sealed class ToolbarAction {
     data class ToggleEraserManu(val isOpen: Boolean) : ToolbarAction()
     data class ToggleBackgroundSelector(val isOpen: Boolean) : ToolbarAction()
     data class ToggleScribbleToErase(val enabled: Boolean) : ToolbarAction()
+    data class ChangePartialEraserDiameter(val diameterDp: Float) : ToolbarAction()
 
     object Undo : ToolbarAction()
     object Redo : ToolbarAction()
@@ -225,7 +238,7 @@ class EditorViewModel @Inject constructor(
             it.copy(
                 mode = settings?.mode ?: Mode.Draw,
                 pen = settings?.pen ?: Pen.BALLPEN,
-                eraser = settings?.eraser ?: Eraser.PEN,
+                eraser = settings?.eraser ?: Eraser.PARTIAL,
                 isToolbarOpen = settings?.isToolbarOpen ?: false,
                 penSettings = settings?.penSettings ?: DEFAULT_PEN_SETTINGS
             )
@@ -248,6 +261,125 @@ class EditorViewModel @Inject constructor(
     }
 
     fun createHistory(page: PageView): History = historyFactory.create(page)
+
+    fun activateLink(link: CanvasLink) {
+        viewModelScope.launch {
+            when (link.targetType) {
+                LinkTargetType.PAGE -> {
+                    val page = withContext(Dispatchers.IO) { appRepository.pageRepository.getById(link.target) }
+                    if (page == null) showMissingLink("Page", link.target)
+                    else changePage(page.id)
+                }
+
+                LinkTargetType.NOTEBOOK -> {
+                    val book = withContext(Dispatchers.IO) { appRepository.bookRepository.getById(link.target) }
+                    val targetPage = book?.openPageId ?: book?.pageIds?.firstOrNull()
+                    if (targetPage == null) showMissingLink("Notebook", link.target)
+                    else changePage(targetPage)
+                }
+
+                LinkTargetType.URL -> {
+                    val uri = runCatching { link.target.toUri() }.getOrNull()
+                    if (uri?.scheme !in setOf("http", "https")) {
+                        showMissingLink("URL", link.target)
+                    } else uri?.let { openExternal(it, null) }
+                }
+
+                LinkTargetType.PDF_ATTACHMENT -> openPdfAttachment(link.target)
+            }
+        }
+    }
+
+    suspend fun importPdfAttachment(pageId: String, source: Uri, copy: Boolean): Attachment =
+        withContext(Dispatchers.IO) {
+            val id = UUID.randomUUID().toString()
+            val displayName = context.contentResolver.query(
+                source, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            } ?: "document.pdf"
+            val attachment = if (copy) {
+                val directory = File(context.filesDir, "attachments").apply { mkdirs() }
+                val relativePath = "$id.pdf"
+                val destination = File(directory, relativePath)
+                context.contentResolver.openInputStream(source).use { input ->
+                    requireNotNull(input) { "Unable to read selected PDF" }
+                    destination.outputStream().use(input::copyTo)
+                }
+                val digest = MessageDigest.getInstance("SHA-256")
+                    .digest(destination.readBytes())
+                    .joinToString("") { "%02x".format(it) }
+                Attachment(
+                    id = id,
+                    pageId = pageId,
+                    displayName = displayName,
+                    storageMode = AttachmentStorageMode.MANAGED,
+                    relativePath = relativePath,
+                    checksum = digest,
+                    size = destination.length(),
+                )
+            } else {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        source,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+                Attachment(
+                    id = id,
+                    pageId = pageId,
+                    displayName = displayName,
+                    storageMode = AttachmentStorageMode.OBSERVED,
+                )
+            }
+            appRepository.attachmentRepository.create(listOf(attachment))
+            if (!copy) {
+                appRepository.attachmentRepository.putBinding(AttachmentBinding(id, source.toString()))
+            }
+            attachment
+        }
+
+    private suspend fun openPdfAttachment(id: String) {
+        val attachment = withContext(Dispatchers.IO) { appRepository.attachmentRepository.getById(id) }
+        if (attachment == null) {
+            showMissingLink("PDF attachment", id)
+            return
+        }
+        val uri = when (attachment.storageMode) {
+            AttachmentStorageMode.OBSERVED -> withContext(Dispatchers.IO) {
+                appRepository.attachmentRepository.getBinding(id)?.uri?.toUri()
+            }
+            AttachmentStorageMode.MANAGED -> attachment.relativePath?.let { relative ->
+                val file = File(context.filesDir, "attachments/$relative")
+                if (file.exists()) FileProvider.getUriForFile(context, "com.ethran.notable.provider", file) else null
+            }
+        }
+        if (uri == null) {
+            snackDispatcher.showOrUpdateSnack(
+                SnackConf(
+                    text = "PDF is unavailable on this device",
+                    duration = 8000,
+                    actions = listOf("Relink" to { onToolbarAction(ToolbarAction.ChangeMode(Mode.Link)) })
+                )
+            )
+        } else openExternal(uri, "application/pdf")
+    }
+
+    private fun openExternal(uri: Uri, mimeType: String?) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(intent) }.onFailure {
+            snackDispatcher.showOrUpdateSnack(SnackConf(text = "No app can open this link", duration = 4000))
+        }
+    }
+
+    private fun showMissingLink(kind: String, target: String) {
+        snackDispatcher.showOrUpdateSnack(
+            SnackConf(text = "$kind target is unavailable: $target", duration = 6000)
+        )
+    }
 
     suspend fun applyActivePenPreferences(settings: AppSettings) {
         withContext(Dispatchers.IO) {
@@ -310,6 +442,7 @@ class EditorViewModel @Inject constructor(
             }
 
             is ToolbarAction.ToggleScribbleToErase -> updateScribbleToErase(action.enabled)
+            is ToolbarAction.ChangePartialEraserDiameter -> updatePartialEraserDiameter(action.diameterDp)
             is ToolbarAction.ImagePicked -> handleImagePicked(action.uri)
             is ToolbarAction.ExportPage -> handleExport(
                 ExportTarget.Page(currentPageId),
@@ -401,6 +534,16 @@ class EditorViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             appRepository.kvProxy.setAppSettings(
                 GlobalAppSettings.current.copy(scribbleToEraseEnabled = enabled)
+            )
+        }
+    }
+
+    private fun updatePartialEraserDiameter(diameterDp: Float) {
+        viewModelScope.launch(Dispatchers.IO) {
+            appRepository.kvProxy.setAppSettings(
+                GlobalAppSettings.current.copy(
+                    partialEraserDiameterDp = diameterDp.coerceIn(10f, 100f),
+                )
             )
         }
     }

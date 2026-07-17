@@ -219,6 +219,7 @@ dependencies {
     // For testing:
     androidTestImplementation libs.androidx.room.testing.android
     testImplementation libs.androidx.room.testing
+    testImplementation libs.robolectric
     testImplementation libs.androidx.core.testing
 
     implementation libs.coil.compose
@@ -249,6 +250,12 @@ dependencies {
     // WebDAV sync dependencies
     implementation libs.androidx.work.runtime.ktx          // Background sync
     implementation libs.okhttp              // HTTP/WebDAV client
+    implementation libs.markwon.core
+    implementation libs.markwon.editor
+    implementation libs.markwon.strikethrough
+    implementation libs.markwon.tables
+    implementation libs.markwon.tasklist
+    implementation libs.play.services.auth
 //    implementation("com.google.crypto.tink:tink-android:1.21.0")    // provides encryption for sync credentials
 
     // Added so that R8 optimization don't fail

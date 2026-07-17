@@ -57,6 +57,22 @@ fun GeneralSettings(
         }
 
         SettingToggleRow(
+            label = "Shape perfection",
+            value = settings.shapePerfectionEnabled,
+            onToggle = { onSettingsChange(settings.copy(shapePerfectionEnabled = it)) },
+        )
+        if (settings.shapePerfectionEnabled) {
+            SelectorRow(
+                label = "Shape dwell delay",
+                options = listOf(300L, 500L, 800L, 1000L, 1200L, 1500L).map {
+                    it to "$it ms"
+                },
+                value = settings.shapePerfectionDelayMs,
+                onValueChange = { onSettingsChange(settings.copy(shapePerfectionDelayMs = it)) },
+            )
+        }
+
+        SettingToggleRow(
             label = stringResource(R.string.enable_smooth_scrolling),
             value = settings.smoothScroll,
             onToggle = { isChecked ->

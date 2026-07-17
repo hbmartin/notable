@@ -21,6 +21,7 @@ import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.imageBounds
 import com.ethran.notable.editor.utils.plus
 import com.ethran.notable.editor.utils.strokeBounds
+import com.ethran.notable.editor.utils.SpatialKind
 import com.ethran.notable.io.uriToBitmap
 import com.ethran.notable.utils.AppResult
 import com.ethran.notable.utils.DomainError
@@ -79,8 +80,18 @@ fun drawImage(
         val rectOnCanvas = Rect(
             image.x, image.y, image.x + image.width, image.y + image.height
         ) + offset
-        // Draw the bitmap on the canvas at the center of the page
+        canvas.save()
+        val centerX = rectOnCanvas.exactCenterX()
+        val centerY = rectOnCanvas.exactCenterY()
+        canvas.rotate(image.rotation, centerX, centerY)
+        canvas.scale(
+            if (image.flipHorizontal) -1f else 1f,
+            if (image.flipVertical) -1f else 1f,
+            centerX,
+            centerY,
+        )
         canvas.drawBitmap(softwareBitmap, rectOnImage, rectOnCanvas, null)
+        canvas.restore()
 
         pageDrawingLog.i("Image drawn successfully!")
         AppResult.Success(Unit)
@@ -137,6 +148,7 @@ fun drawDebugRectWithLabels(
 }
 
 
+@Suppress("CyclomaticComplexMethod")
 fun drawOnCanvasFromPage(
     page: PageView,
     canvas: Canvas,
@@ -151,6 +163,8 @@ fun drawOnCanvasFromPage(
     pageDrawingLog.d("drawOnCanvasFromPage, zoom: $zoomLevel, background: $background, type: $backgroundType")
 
     var persistentError: DomainError? = null
+    val candidates = page.pageDataManager.getSpatialEntries(pageArea, page.currentPageId)
+    val candidateIds = candidates.groupBy( { it.kind }, { it.id } ).mapValues { it.value.toHashSet() }
 
     // Canvas is scaled, it will scale page area.
     canvas.withClip(canvasClipBounds) {
@@ -164,6 +178,7 @@ fun drawOnCanvasFromPage(
         }
         try {
             page.images.forEach { image ->
+                if (image.id !in candidateIds[SpatialKind.IMAGE].orEmpty()) return@forEach
                 if (ignoredImageIds.contains(image.id)) return@forEach
                 pageDrawingLog.i("PageView.kt: drawing image!")
                 val bounds = imageBounds(image)
@@ -185,6 +200,7 @@ fun drawOnCanvasFromPage(
         }
         try {
             page.strokes.forEach { stroke ->
+                if (stroke.id !in candidateIds[SpatialKind.STROKE].orEmpty()) return@forEach
                 if (ignoredStrokeIds.contains(stroke.id)) return@forEach
                 val bounds = strokeBounds(stroke)
                 // if stroke is not inside page section
@@ -196,6 +212,20 @@ fun drawOnCanvasFromPage(
             val error = DomainError.DrawingError("Strokes failed: ${e.message ?: e.toString()}")
             pageDrawingLog.e("PageView.kt: ${error.userMessage}", e)
             persistentError = persistentError?.let { it + error } ?: error
+        }
+        page.texts.forEach { item ->
+            if (item.id !in candidateIds[SpatialKind.TEXT].orEmpty()) return@forEach
+            val bounds = RectF(item.x, item.y, item.x + item.width, item.y + item.height)
+            if (bounds.toRect().intersect(pageArea)) {
+                CanvasTextRenderer.draw(this, item, page.context, -page.scroll)
+            }
+        }
+        page.links.forEach { item ->
+            if (item.id !in candidateIds[SpatialKind.LINK].orEmpty()) return@forEach
+            val bounds = RectF(item.x, item.y, item.x + item.width, item.y + item.height)
+            if (bounds.toRect().intersect(pageArea)) {
+                CanvasLinkRenderer.draw(this, item, -page.scroll)
+            }
         }
     }
     pageDrawingLog.d(

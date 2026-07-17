@@ -80,7 +80,8 @@ internal fun readBytesWithLimit(input: InputStream, maxBytes: Int): ByteArray? {
  */
 class WebDAVClient(
     private val serverUrl: String, username: String, password: String
-) {
+) : RemoteSyncProvider {
+    override val providerType = SyncProviderType.WEBDAV
     private val client =
         OkHttpClient.Builder().connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -94,7 +95,7 @@ class WebDAVClient(
      * @return AppResult.Success with ConnectionTestResult (includes clock skew info if available),
      *         or AppResult.Error with details.
      */
-    fun testConnection(): AppResult<ConnectionTestResult, DomainError> {
+    override fun testConnection(): AppResult<ConnectionTestResult, DomainError> {
         return try {
             val request =
                 Request.Builder().url(serverUrl).head().header("Authorization", credentials).build()
@@ -120,7 +121,7 @@ class WebDAVClient(
      * Makes a HEAD request and parses the RFC 1123 Date header.
      * @return Server time as epoch millis, or null if unavailable/unparseable
      */
-    fun getServerTime(): Long? {
+    override fun getServerTime(): Long? {
         return try {
             val request =
                 Request.Builder().url(serverUrl).head().header("Authorization", credentials).build()
@@ -141,7 +142,7 @@ class WebDAVClient(
      * @param path Resource path relative to server URL
      * @return true if resource exists
      */
-    fun exists(path: String): Boolean {
+    override fun exists(path: String): Boolean {
         return existsResult(path).fold(
             onSuccess = { it },
             onError = {
@@ -151,7 +152,7 @@ class WebDAVClient(
         )
     }
 
-    fun existsResult(path: String): AppResult<Boolean, DomainError> {
+    override fun existsResult(path: String): AppResult<Boolean, DomainError> {
         return try {
             val url = buildUrl(path)
             val request =
@@ -178,7 +179,7 @@ class WebDAVClient(
      * @param path Collection path relative to server URL
      * @throws IOException if creation fails
      */
-    fun createCollection(path: String): AppResult<Unit, DomainError> {
+    override fun createCollection(path: String): AppResult<Unit, DomainError> {
         return try {
             val url = buildUrl(path)
             val request = Request.Builder().url(url).method("MKCOL", null)
@@ -203,11 +204,11 @@ class WebDAVClient(
      * @param contentType MIME type of the content
      * @throws IOException if upload fails
      */
-    fun putFile(
+    override fun putFile(
         path: String,
         content: ByteArray,
-        contentType: String = "application/octet-stream",
-        ifMatch: String? = null
+        contentType: String,
+        ifMatch: String?
     ): AppResult<Unit, DomainError> {
         return try {
             val url = buildUrl(path)
@@ -239,11 +240,11 @@ class WebDAVClient(
      * @param contentType MIME type of the content
      * @throws IOException if upload fails
      */
-    fun putFile(
+    override fun putFile(
         path: String,
         localFile: File,
-        contentType: String = "application/octet-stream",
-        ifMatch: String? = null
+        contentType: String,
+        ifMatch: String?
     ): AppResult<Unit, DomainError> {
         if (!localFile.exists()) return AppResult.Error(DomainError.SyncError("Local file missing"))
         return try {
@@ -264,11 +265,11 @@ class WebDAVClient(
         }
     }
 
-    fun getFile(path: String): AppResult<ByteArray, DomainError> {
+    override fun getFile(path: String): AppResult<ByteArray, DomainError> {
         return getFileWithMetadata(path).map { it.content }
     }
 
-    fun getFileWithMetadata(path: String): AppResult<DownloadedFile, DomainError> {
+    override fun getFileWithMetadata(path: String): AppResult<DownloadedFile, DomainError> {
         return try {
             val url = buildUrl(path)
             val request =
@@ -311,7 +312,7 @@ class WebDAVClient(
         }
     }
 
-    fun getFile(path: String, localFile: File): AppResult<Unit, DomainError> {
+    override fun getFile(path: String, localFile: File): AppResult<Unit, DomainError> {
         return try {
             val request = Request.Builder().url(buildUrl(path)).get()
                 .header("Authorization", credentials).build()
@@ -358,7 +359,7 @@ class WebDAVClient(
      * @param path Resource path relative to server URL
      * @throws IOException if deletion fails
      */
-    fun delete(path: String): AppResult<Unit, DomainError> {
+    override fun delete(path: String): AppResult<Unit, DomainError> {
         return try {
             val url = buildUrl(path)
             val request =
@@ -383,7 +384,7 @@ class WebDAVClient(
      * @return List of resource names in the collection
      * @throws IOException if PROPFIND fails
      */
-    fun listCollection(path: String): AppResult<List<String>, DomainError> {
+    override fun listCollection(path: String): AppResult<List<String>, DomainError> {
         return try {
             val url = buildUrl(path)
             // WebDAV PROPFIND request body for directory listing
@@ -419,7 +420,7 @@ class WebDAVClient(
      * @return List of RemoteEntry objects; empty if collection doesn't exist
      * @throws IOException if PROPFIND fails for a reason other than 404
      */
-    fun listCollectionWithMetadata(path: String): AppResult<List<RemoteEntry>, DomainError> {
+    override fun listCollectionWithMetadata(path: String): AppResult<List<RemoteEntry>, DomainError> {
         return try {
             val url = buildUrl(path)
 
@@ -460,7 +461,7 @@ class WebDAVClient(
      * @param path File path (will create parent directories)
      * @throws IOException if directory creation fails
      */
-    fun ensureParentDirectories(path: String): AppResult<Unit, DomainError> {
+    override fun ensureParentDirectories(path: String): AppResult<Unit, DomainError> {
         val segments = path.trimStart('/').split('/')
         if (segments.size <= 1) return AppResult.Success(Unit)
 

@@ -1,6 +1,8 @@
 package com.ethran.notable.ui.viewmodels
 
 import android.content.Context
+import android.content.Intent
+import android.app.PendingIntent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,6 +24,10 @@ import com.ethran.notable.sync.SyncScheduler
 import com.ethran.notable.sync.SyncSettings
 import com.ethran.notable.sync.SyncState
 import com.ethran.notable.sync.WebDAVClient
+import com.ethran.notable.sync.RemoteSyncProviderFactoryPort
+import com.ethran.notable.sync.SyncProviderType
+import com.ethran.notable.sync.DriveAuthorizationManager
+import com.ethran.notable.sync.DriveAuthorizationResult
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.SnackDispatcher
 import com.ethran.notable.utils.AppResult
@@ -52,10 +58,14 @@ data class SyncSettingsUiState(
     val syncLogs: List<SyncLogger.LogEntry> = emptyList(),
     val syncState: SyncState = SyncState.Idle,
     val showForceUploadConfirm: Boolean = false,
-    val showForceDownloadConfirm: Boolean = false
+    val showForceDownloadConfirm: Boolean = false,
+    val driveAuthorizationPendingIntent: PendingIntent? = null,
 ) {
     val credentialsDirty: Boolean
-        get() = syncSettings.serverUrl != lastSavedSettings.serverUrl ||
+        get() = syncSettings.providerType != lastSavedSettings.providerType ||
+                syncSettings.googleDriveFolderId != lastSavedSettings.googleDriveFolderId ||
+                syncSettings.googleAccountName != lastSavedSettings.googleAccountName ||
+                syncSettings.serverUrl != lastSavedSettings.serverUrl ||
                 syncSettings.username != lastSavedSettings.username ||
                 syncSettings.password.isNotEmpty()
 }
@@ -70,6 +80,8 @@ class SettingsViewModel @Inject constructor(
     private val syncScheduler: SyncScheduler,
     private val snackDispatcher: SnackDispatcher,
     private val appEventBus: AppEventBus,
+    private val providerFactory: RemoteSyncProviderFactoryPort,
+    private val driveAuthorizationManager: DriveAuthorizationManager,
     @param:ApplicationScope private val appScope: CoroutineScope
 ) : ViewModel() {
 
@@ -205,10 +217,78 @@ class SettingsViewModel @Inject constructor(
         syncUiState = syncUiState.copy(passwordVisible = !syncUiState.passwordVisible)
     }
 
+    fun onProviderSwitch(providerType: SyncProviderType) {
+        if (providerType == syncUiState.syncSettings.providerType) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val old = kvProxy.getSyncSettings()
+            if (old.syncEnabled) {
+                when (val finalPull = syncOrchestrator.syncAllNotebooks()) {
+                    is AppResult.Error -> {
+                        withContext(Dispatchers.Main) {
+                            snackDispatcher.showOrUpdateSnack(
+                                SnackConf(text = "Provider switch stopped: ${finalPull.error.userMessage}", duration = 6000)
+                            )
+                        }
+                        return@launch
+                    }
+                    is AppResult.Success -> Unit
+                }
+            }
+            val switched = old.copy(
+                providerType = providerType,
+                syncEnabled = false,
+                syncedNotebookIds = emptySet(),
+                remoteNamespaceVersion = 2,
+            )
+            kvProxy.setSyncSettings(switched)
+            withContext(Dispatchers.Main) {
+                val ui = switched.copy(password = "")
+                syncUiState = syncUiState.copy(syncSettings = ui, lastSavedSettings = ui)
+                snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = "Provider switched. Configure the new destination, then enable sync.", duration = 6000)
+                )
+            }
+        }
+    }
+
+    fun onAuthorizeGoogleDrive() {
+        viewModelScope.launch {
+            when (val result = driveAuthorizationManager.authorizeSilently(syncUiState.syncSettings.googleAccountName)) {
+                is DriveAuthorizationResult.Authorized -> snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = "Google Drive authorized", duration = 3000)
+                )
+                is DriveAuthorizationResult.NeedsUserAction -> {
+                    syncUiState = syncUiState.copy(driveAuthorizationPendingIntent = result.pendingIntent)
+                }
+                is DriveAuthorizationResult.Unavailable -> snackDispatcher.showOrUpdateSnack(
+                    SnackConf(text = result.reason, duration = 5000)
+                )
+            }
+        }
+    }
+
+    fun onGoogleDriveAuthorizationResult(data: Intent?) {
+        syncUiState = syncUiState.copy(driveAuthorizationPendingIntent = null)
+        val result = data?.let(driveAuthorizationManager::consumeAuthorizationResult)
+            ?: DriveAuthorizationResult.Unavailable("Authorization cancelled")
+        snackDispatcher.showOrUpdateSnack(
+            SnackConf(
+                text = when (result) {
+                    is DriveAuthorizationResult.Authorized -> "Google Drive authorized"
+                    is DriveAuthorizationResult.Unavailable -> result.reason
+                    is DriveAuthorizationResult.NeedsUserAction -> "Google Drive authorization still needs attention"
+                },
+                duration = 4000,
+            )
+        )
+    }
+
     fun onTestConnection() {
         refreshConnectivityStatus()
         val settings = syncUiState.syncSettings
-        if (settings.serverUrl.isBlank() || settings.username.isBlank()) return
+        if (settings.providerType == SyncProviderType.WEBDAV &&
+            (settings.serverUrl.isBlank() || settings.username.isBlank())) return
+        if (settings.providerType == SyncProviderType.GOOGLE_DRIVE && settings.googleDriveFolderId.isNullOrBlank()) return
 
         syncUiState = syncUiState.copy(testingConnection = true, connectionStatus = null)
         viewModelScope.launch(Dispatchers.IO) {
@@ -217,8 +297,11 @@ class SettingsViewModel @Inject constructor(
                     kvProxy.getSyncSettings().password
                 }
 
-            val client = WebDAVClient(settings.serverUrl, settings.username, password)
-            val result = client.testConnection()
+            val configured = settings.copy(password = password)
+            val result = when (val provider = providerFactory.create(configured)) {
+                is AppResult.Success -> provider.data.testConnection()
+                is AppResult.Error -> AppResult.Error(provider.error)
+            }
 
             withContext(Dispatchers.Main) {
                 syncUiState = syncUiState.copy(testingConnection = false, connectionStatus = result)

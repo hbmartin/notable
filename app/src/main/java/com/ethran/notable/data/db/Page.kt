@@ -47,12 +47,27 @@ data class PageWithData(
         parentColumn = "id",
         entityColumn = "pageId",
         entity = Stroke::class
-    ) val strokes: List<Stroke>,
+    ) val strokes: List<Stroke> = emptyList(),
     @Relation(
         parentColumn = "id",
         entityColumn = "pageId",
         entity = Image::class
-    ) val images: List<Image>
+    ) val images: List<Image> = emptyList(),
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "pageId",
+        entity = CanvasText::class,
+    ) val texts: List<CanvasText> = emptyList(),
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "pageId",
+        entity = CanvasLink::class,
+    ) val links: List<CanvasLink> = emptyList(),
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "pageId",
+        entity = Attachment::class,
+    ) val attachments: List<Attachment> = emptyList(),
 )
 
 

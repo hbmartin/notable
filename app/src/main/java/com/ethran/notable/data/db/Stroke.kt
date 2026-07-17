@@ -72,6 +72,12 @@ interface StrokeDao {
     suspend fun deleteAll(ids: List<String>)
 
     @Transaction
+    suspend fun replace(ids: List<String>, replacements: List<Stroke>) {
+        if (ids.isNotEmpty()) deleteAll(ids)
+        if (replacements.isNotEmpty()) create(replacements)
+    }
+
+    @Transaction
     @Query("SELECT * FROM stroke WHERE id =:strokeId")
     suspend fun getById(strokeId: String): Stroke
 
@@ -105,5 +111,9 @@ class StrokeRepository @Inject constructor(
 
     suspend fun getStrokeWithPointsById(strokeId: String): Stroke {
         return db.getById(strokeId)
+    }
+
+    suspend fun replace(ids: List<String>, replacements: List<Stroke>) {
+        db.replace(ids, replacements)
     }
 }

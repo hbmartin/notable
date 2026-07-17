@@ -27,10 +27,19 @@ data class Image(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
 
-    var x: Int = 0,
-    var y: Int = 0,
+    val x: Int = 0,
+    val y: Int = 0,
     val height: Int,
     val width: Int,
+
+    @ColumnInfo(defaultValue = "0")
+    val rotation: Float = 0f,
+
+    @ColumnInfo(defaultValue = "0")
+    val flipHorizontal: Boolean = false,
+
+    @ColumnInfo(defaultValue = "0")
+    val flipVertical: Boolean = false,
 
     // use uri instead of bytearray
     //val bitmap: ByteArray,
@@ -55,8 +64,17 @@ interface ImageDao {
     @Update
     suspend fun update(image: Image)
 
+    @Update
+    suspend fun update(images: List<Image>)
+
     @Query("DELETE FROM Image WHERE id IN (:ids)")
     suspend fun deleteAll(ids: List<String>)
+
+    @Transaction
+    suspend fun replace(ids: List<String>, replacements: List<Image>) {
+        if (ids.isNotEmpty()) deleteAll(ids)
+        if (replacements.isNotEmpty()) create(replacements)
+    }
 
     @Transaction
     @Query("SELECT * FROM Image WHERE id = :imageId")
@@ -104,11 +122,19 @@ class ImageRepository @Inject constructor(
         db.update(image)
     }
 
+    suspend fun update(images: List<Image>) {
+        db.update(images)
+    }
+
     suspend fun deleteAll(ids: List<String>) {
         db.deleteAll(ids)
     }
 
     suspend fun getImageWithPointsById(imageId: String): Image {
         return db.getById(imageId)
+    }
+
+    suspend fun replace(ids: List<String>, replacements: List<Image>) {
+        db.replace(ids, replacements)
     }
 }

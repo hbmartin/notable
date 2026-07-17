@@ -28,7 +28,7 @@ class SyncOrchestrator @Inject constructor(
     private val notebookSyncService: NotebookSyncService,
     private val syncForceService: SyncForceService,
     private val notebookReconciliationService: NotebookReconciliationService,
-    private val webDavClientFactory: WebDavClientFactoryPort,
+    private val providerFactory: RemoteSyncProviderFactoryPort,
     private val reporter: SyncProgressReporter,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
@@ -50,6 +50,7 @@ class SyncOrchestrator @Inject constructor(
             reporter.beginStep(SyncStep.INITIALIZING, PROGRESS_INITIALIZING, "Initializing sync...")
 
             val settings = kvProxy.getSyncSettings()
+            SyncPaths.useVersion(settings.remoteNamespaceVersion)
             val uploadOnly = settings.uploadOnly
             var nonCriticalError: DomainError? = null
 
@@ -59,7 +60,8 @@ class SyncOrchestrator @Inject constructor(
                 return@withContext AppResult.Error(error)
             }
 
-            if (settings.username.isBlank() || settings.password.isBlank()) {
+            if (settings.providerType == SyncProviderType.WEBDAV &&
+                (settings.username.isBlank() || settings.password.isBlank())) {
                 val error = DomainError.SyncAuthError
                 reporter.finishError(error, false)
                 return@withContext AppResult.Error(error)
@@ -71,11 +73,10 @@ class SyncOrchestrator @Inject constructor(
                 return@withContext AppResult.Error(error)
             }
 
-            val client = webDavClientFactory.create(
-                settings.serverUrl,
-                settings.username,
-                settings.password
-            )
+            val client = providerFactory.create(settings).onFailure { error ->
+                reporter.finishError(error, false)
+                return@withContext AppResult.Error(error)
+            }
 
             syncPreflightService.checkClockSkew(client).onFailure { error ->
                 reporter.finishError(error, false)
@@ -171,6 +172,27 @@ class SyncOrchestrator @Inject constructor(
                 deletedCount,
                 System.currentTimeMillis() - startTime
             )
+            if (settings.remoteNamespaceVersion < 2) {
+                logger.i(TAG, "v1 pull complete; bootstrapping versioned v2 namespace")
+                SyncPaths.useVersion(2)
+                when (val bootstrap = syncForceService.forceUploadAll()) {
+                    is AppResult.Error -> {
+                        SyncPaths.useVersion(1)
+                        return@withContext bootstrap
+                    }
+                    is AppResult.Success -> {
+                        client.putFile(
+                            SyncPaths.versionMarker(),
+                            "2".toByteArray(),
+                            "text/plain",
+                        ).onFailure {
+                            SyncPaths.useVersion(1)
+                            return@withContext AppResult.Error(it)
+                        }
+                        kvProxy.setSyncSettings(settings.copy(remoteNamespaceVersion = 2))
+                    }
+                }
+            }
             finalizeSyncResult(reporter, summary, nonCriticalError)
 
         } catch (e: Exception) {
@@ -194,17 +216,16 @@ class SyncOrchestrator @Inject constructor(
         withContext(ioDispatcher) {
             if (syncMutex.isLocked) return@withContext AppResult.Success(Unit)
             val settings = kvProxy.getSyncSettings()
+            SyncPaths.useVersion(settings.remoteNamespaceVersion)
             if (!settings.syncEnabled) return@withContext AppResult.Success(Unit)
 
             return@withContext syncPreflightService.checkConnectivityConstraints().flatMap {
-                if (settings.username.isBlank() || settings.password.isBlank()) {
+                if (settings.providerType == SyncProviderType.WEBDAV &&
+                    (settings.username.isBlank() || settings.password.isBlank())) {
                     return@flatMap AppResult.Error(DomainError.SyncAuthError)
                 }
-                val client = webDavClientFactory.create(
-                    settings.serverUrl,
-                    settings.username,
-                    settings.password
-                )
+                val client = providerFactory.create(settings)
+                    .onFailure { return@flatMap AppResult.Error(it) }
                 notebookReconciliationService.syncNotebook(
                     notebookId,
                     client,
@@ -227,18 +248,16 @@ class SyncOrchestrator @Inject constructor(
     suspend fun uploadDeletion(notebookId: String): AppResult<Unit, DomainError> =
         withContext(ioDispatcher) {
             val settings = kvProxy.getSyncSettings()
+            SyncPaths.useVersion(settings.remoteNamespaceVersion)
             if (!settings.syncEnabled) return@withContext AppResult.Success(Unit)
 
             return@withContext syncPreflightService.checkConnectivityConstraints().flatMap {
-                if (settings.username.isBlank() || settings.password.isBlank()) {
+                if (settings.providerType == SyncProviderType.WEBDAV &&
+                    (settings.username.isBlank() || settings.password.isBlank())) {
                     return@flatMap AppResult.Error(DomainError.SyncAuthError)
                 }
-                val client =
-                    webDavClientFactory.create(
-                        settings.serverUrl,
-                        settings.username,
-                        settings.password
-                    )
+                val client = providerFactory.create(settings)
+                    .onFailure { return@flatMap AppResult.Error(it) }
 
                 val path = SyncPaths.notebookDir(notebookId)
                 if (client.exists(path)) {

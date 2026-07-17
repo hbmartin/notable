@@ -214,7 +214,7 @@ fun prepareForPartialUpdate(view: View, touchHelper: TouchHelper?) {
     touchHelper.isRawDrawingRenderEnabled = true
 }
 
-fun refreshScreenRegion(view: View, dirtyRect: Rect) {
+fun refreshScreenRegion(view: View, dirtyRect: Rect, mode: UpdateMode = UpdateMode.ANIMATION_MONO) {
     if (!view.isAttachedToWindow) {
         log.e("View is not attached to window")
         logCallStack("refreshScreenRegion")
@@ -225,7 +225,7 @@ fun refreshScreenRegion(view: View, dirtyRect: Rect) {
         dirtyRect.top,
         dirtyRect.width(),
         dirtyRect.height(),
-        UpdateMode.ANIMATION_MONO
+        mode
     )
     OnyxDisplayController.recordPartialRefresh()
 }

@@ -1,11 +1,13 @@
 package com.ethran.notable.ui.components
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -17,6 +19,8 @@ import com.ethran.notable.navigation.rememberNotableAppState
 import com.ethran.notable.ui.SnackBar
 import com.ethran.notable.ui.SnackDispatcher
 import com.ethran.notable.ui.SnackState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 @Composable
@@ -24,9 +28,29 @@ fun NotableApp(
     exportEngine: ExportEngine,
     snackState: SnackState,
     snackDispatcher: SnackDispatcher,
-    appRepository: AppRepository
+    appRepository: AppRepository,
+    incomingLink: Uri? = null,
+    onIncomingLinkHandled: () -> Unit = {},
 ) {
     val appNavState = rememberNotableAppState()
+    LaunchedEffect(incomingLink) {
+        val link = incomingLink ?: return@LaunchedEffect
+        val target = link.schemeSpecificPart.removePrefix("//")
+        when {
+            target.startsWith("page-") -> {
+                val pageId = target.removePrefix("page-")
+                val page = withContext(Dispatchers.IO) { appRepository.pageRepository.getById(pageId) }
+                if (page != null) appNavState.goToEditor(page.id, page.notebookId)
+            }
+            target.startsWith("book-") -> {
+                val bookId = target.removePrefix("book-")
+                val book = withContext(Dispatchers.IO) { appRepository.bookRepository.getById(bookId) }
+                val pageId = book?.openPageId ?: book?.pageIds?.firstOrNull()
+                if (pageId != null) appNavState.goToEditor(pageId, bookId)
+            }
+        }
+        onIncomingLinkHandled()
+    }
     Box(
         Modifier
             .background(Color.White)

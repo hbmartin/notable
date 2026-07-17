@@ -17,7 +17,7 @@ class FolderSyncService @Inject constructor(
     private val folderSerializer = FolderSerializer
 
     suspend fun syncFolders(
-        webdavClient: WebDAVClient,
+        webdavClient: RemoteSyncProvider,
         uploadOnly: Boolean
     ): AppResult<Unit, DomainError> {
         SyncLogger.i(TAG, "Syncing folders...")

@@ -6,12 +6,15 @@ import android.content.res.Configuration
 import android.database.sqlite.SQLiteConstraintException
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.graphics.RectF
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.geometry.Offset
 import com.ethran.notable.SCREEN_HEIGHT
 import com.ethran.notable.SCREEN_WIDTH
 import com.ethran.notable.data.db.Image
+import com.ethran.notable.data.db.CanvasLink
+import com.ethran.notable.data.db.CanvasText
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.db.getBackgroundType
@@ -24,6 +27,8 @@ import com.ethran.notable.data.model.BackgroundType.ImageRepeating
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.saveHQPagePreview
 import com.ethran.notable.editor.utils.savePageThumbnail
+import com.ethran.notable.editor.utils.PageSpatialIndex
+import com.ethran.notable.editor.utils.SpatialKind
 import com.ethran.notable.io.loadBackgroundBitmap
 import com.ethran.notable.utils.chunked
 import com.ethran.notable.utils.logCallStack
@@ -82,6 +87,9 @@ class PageDataManager @Inject constructor(
 
     private val images = LinkedHashMap<String, MutableList<Image>>()
     private var imagesById = LinkedHashMap<String, HashMap<String, Image>>()
+    private val spatialIndexes = LinkedHashMap<String, PageSpatialIndex>()
+    private val texts = LinkedHashMap<String, MutableList<CanvasText>>()
+    private val links = LinkedHashMap<String, MutableList<CanvasLink>>()
 
     private val backgroundCache = LinkedHashMap<String, CachedBackground>()
     private val pageToBackgroundKey = HashMap<String, String>()
@@ -331,6 +339,8 @@ class PageDataManager @Inject constructor(
             // What will happened if page isn't in repository?
             cacheStrokes(pageId, pageWithData.strokes)
             cacheImages(pageId, pageWithData.images)
+            cacheTexts(pageId, pageWithData.texts)
+            cacheLinks(pageId, pageWithData.links)
             recomputeHeight(pageId)
             indexImages(coroutineScope, pageId)
             indexStrokes(coroutineScope, pageId)
@@ -492,11 +502,11 @@ class PageDataManager @Inject constructor(
 
     fun recomputeHeight(pageId: String): Int {
         synchronized(accessLock) {
-            if (strokes[pageId].isNullOrEmpty()) {
-                return SCREEN_HEIGHT
-            }
-            val maxStrokeBottom = strokes[pageId]!!.maxOf { it.bottom }.plus(50)
-            val newHeight = max(maxStrokeBottom.toInt(), SCREEN_HEIGHT)
+            val maxStrokeBottom = strokes[pageId]?.maxOfOrNull { it.bottom } ?: 0f
+            val maxImageBottom = images[pageId]?.maxOfOrNull { (it.y + it.height).toFloat() } ?: 0f
+            val maxTextBottom = texts[pageId]?.maxOfOrNull { it.y + it.height } ?: 0f
+            val maxLinkBottom = links[pageId]?.maxOfOrNull { it.y + it.height } ?: 0f
+            val newHeight = max(maxOf(maxStrokeBottom, maxImageBottom, maxTextBottom, maxLinkBottom).toInt() + 50, SCREEN_HEIGHT)
             mutateUiState { pageHigh[pageId] = newHeight }
             return newHeight
         }
@@ -563,6 +573,18 @@ class PageDataManager @Inject constructor(
         this.images[pageId] = images.toMutableList()
     }
 
+    fun getTexts(pageId: String): List<CanvasText> = texts[pageId] ?: emptyList()
+    fun setTexts(pageId: String, items: List<CanvasText>) {
+        texts[pageId] = items.toMutableList()
+        rebuildSpatialIndex(pageId)
+    }
+
+    fun getLinks(pageId: String): List<CanvasLink> = links[pageId] ?: emptyList()
+    fun setLinks(pageId: String, items: List<CanvasLink>) {
+        links[pageId] = items.toMutableList()
+        rebuildSpatialIndex(pageId)
+    }
+
     fun indexStrokes(scope: CoroutineScope, pageId: String) {
         scope.launch {
             // The stroke list can be mutated (or the page evicted) while this
@@ -570,6 +592,7 @@ class PageDataManager @Inject constructor(
             synchronized(accessLock) {
                 val pageStrokes = strokes[pageId] ?: return@launch
                 strokesById[pageId] = HashMap(pageStrokes.associateBy { it.id })
+                rebuildSpatialIndex(pageId)
             }
         }
     }
@@ -579,6 +602,7 @@ class PageDataManager @Inject constructor(
             synchronized(accessLock) {
                 val pageImages = images[pageId] ?: return@launch
                 imagesById[pageId] = HashMap(pageImages.associateBy { it.id })
+                rebuildSpatialIndex(pageId)
             }
         }
     }
@@ -600,26 +624,67 @@ class PageDataManager @Inject constructor(
     fun getImagesInRectangle(inPageCoordinates: Rect, id: String): List<Image>? {
         synchronized(accessLock) {
             if (!validatePageDataLoaded(id)) return null
-            val imageList = images[id] ?: return emptyList()
-            return imageList.filter { image ->
-                image.x < inPageCoordinates.right && (image.x + image.width) > inPageCoordinates.left && image.y < inPageCoordinates.bottom && (image.y + image.height) > inPageCoordinates.top
-            }
+            val imageById = imagesById[id].orEmpty()
+            return spatialIndexes[id]
+                ?.query(RectF(inPageCoordinates), SpatialKind.IMAGE)
+                ?.mapNotNull { imageById[it.id] }
+                ?: emptyList()
         }
     }
 
     fun getStrokesInRectangle(inPageCoordinates: Rect, id: String): List<Stroke>? {
         synchronized(accessLock) {
             if (!validatePageDataLoaded(id)) return null
-            val strokeList = strokes[id] ?: return emptyList()
-            return strokeList.filter { stroke ->
-                stroke.right > inPageCoordinates.left && stroke.left < inPageCoordinates.right && stroke.bottom > inPageCoordinates.top && stroke.top < inPageCoordinates.bottom
-            }
+            val strokeById = strokesById[id].orEmpty()
+            return spatialIndexes[id]
+                ?.query(RectF(inPageCoordinates), SpatialKind.STROKE)
+                ?.mapNotNull { strokeById[it.id] }
+                ?: emptyList()
         }
+    }
+
+    fun getSpatialEntries(inPageCoordinates: Rect, pageId: String): List<com.ethran.notable.editor.utils.SpatialEntry> =
+        synchronized(accessLock) {
+            spatialIndexes[pageId]?.query(RectF(inPageCoordinates)).orEmpty()
+        }
+
+    fun hitTestSpatial(
+        pageId: String,
+        x: Float,
+        y: Float,
+        tolerance: Float,
+        kinds: Set<SpatialKind>,
+    ): com.ethran.notable.editor.utils.SpatialEntry? = synchronized(accessLock) {
+        spatialIndexes[pageId]?.hitTest(x, y, tolerance, kinds)
+    }
+
+    private fun rebuildSpatialIndex(pageId: String) {
+        val index = spatialIndexes.getOrPut(pageId) { PageSpatialIndex() }
+        index.replaceAll(
+            strokes[pageId].orEmpty(),
+            images[pageId].orEmpty(),
+            texts[pageId].orEmpty(),
+            links[pageId].orEmpty(),
+        )
     }
 
     fun updateStrokesInDb(strokes: List<Stroke>) {
         dataScope.launch {
             appRepository.strokeRepository.update(strokes)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun replaceStrokesInDb(removedIds: List<String>, replacements: List<Stroke>) {
+        dataScope.launch {
+            appRepository.strokeRepository.replace(removedIds, replacements)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun replaceImagesInDb(removedIds: List<String>, replacements: List<Image>) {
+        dataScope.launch {
+            appRepository.imageRepository.replace(removedIds, replacements)
             updateParentNotebookTimestamp()
         }
     }
@@ -660,6 +725,48 @@ class PageDataManager @Inject constructor(
     fun removeImagesFromDb(images: List<String>) {
         dataScope.launch {
             appRepository.imageRepository.deleteAll(images)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun saveTextsToDb(items: List<CanvasText>) {
+        dataScope.launch {
+            appRepository.canvasTextRepository.create(items)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun updateTextsInDb(items: List<CanvasText>) {
+        dataScope.launch {
+            appRepository.canvasTextRepository.update(items)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun removeTextsFromDb(ids: List<String>) {
+        dataScope.launch {
+            appRepository.canvasTextRepository.delete(ids)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun saveLinksToDb(items: List<CanvasLink>) {
+        dataScope.launch {
+            appRepository.canvasLinkRepository.create(items)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun updateLinksInDb(items: List<CanvasLink>) {
+        dataScope.launch {
+            appRepository.canvasLinkRepository.update(items)
+            updateParentNotebookTimestamp()
+        }
+    }
+
+    fun removeLinksFromDb(ids: List<String>) {
+        dataScope.launch {
+            appRepository.canvasLinkRepository.delete(ids)
             updateParentNotebookTimestamp()
         }
     }
@@ -711,6 +818,14 @@ class PageDataManager @Inject constructor(
                 this.images[pageId]?.addAll(images)
             }
         }
+    }
+
+    private fun cacheTexts(pageId: String, items: List<CanvasText>) {
+        synchronized(accessLock) { texts[pageId] = items.toMutableList() }
+    }
+
+    private fun cacheLinks(pageId: String, items: List<CanvasLink>) {
+        synchronized(accessLock) { links[pageId] = items.toMutableList() }
     }
 
     fun setCurrentBackground(background: CachedBackground) {
@@ -821,6 +936,9 @@ class PageDataManager @Inject constructor(
         synchronized(accessLock) {
             strokes.remove(pageId)
             images.remove(pageId)
+            texts.remove(pageId)
+            links.remove(pageId)
+            spatialIndexes.remove(pageId)
             // pageHigh/pageScroll are UI-observable snapshot state: remove them in a snapshot.
             mutateUiState {
                 pageHigh.remove(pageId)

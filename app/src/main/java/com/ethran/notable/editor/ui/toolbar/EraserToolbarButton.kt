@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +43,8 @@ fun EraserToolbarButton(
     onMenuOpenChange: (Boolean) -> Unit,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    toggleScribbleToErase: (Boolean) -> Unit
+    toggleScribbleToErase: (Boolean) -> Unit,
+    changePartialDiameter: (Float) -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -53,7 +55,7 @@ fun EraserToolbarButton(
                 if (isSelected) onMenuOpenChange(!isMenuOpen)
                 else onSelect()
             },
-            iconId = if (value == Eraser.PEN) R.drawable.eraser else R.drawable.eraser_select,
+            iconId = if (value == Eraser.SELECT) R.drawable.eraser_select else R.drawable.eraser,
             contentDescription = "Eraser"
         )
 
@@ -80,6 +82,13 @@ fun EraserToolbarButton(
                     ) {
                         ToolbarButton(
                             iconId = R.drawable.eraser,
+                            isSelected = value == Eraser.PARTIAL,
+                            onSelect = { onChange(Eraser.PARTIAL) },
+                            modifier = Modifier.height(BUTTON_SIZE.dp),
+                            contentDescription = "Partial eraser",
+                        )
+                        ToolbarButton(
+                            iconId = R.drawable.eraser,
                             isSelected = value == Eraser.PEN,
                             onSelect = { onChange(Eraser.PEN) },
                             modifier = Modifier.height(BUTTON_SIZE.dp)
@@ -90,6 +99,19 @@ fun EraserToolbarButton(
                             onSelect = { onChange(Eraser.SELECT) },
                             modifier = Modifier.height(BUTTON_SIZE.dp)
                         )
+                    }
+                    if (value == Eraser.PARTIAL) {
+                        Column(Modifier.padding(horizontal = 8.dp)) {
+                            BasicText(
+                                text = "Partial size ${GlobalAppSettings.current.partialEraserDiameterDp.toInt()} dp",
+                                style = TextStyle(color = Color.Black, fontSize = 12.sp),
+                            )
+                            Slider(
+                                value = GlobalAppSettings.current.partialEraserDiameterDp,
+                                onValueChange = changePartialDiameter,
+                                valueRange = 10f..100f,
+                            )
+                        }
                     }
                     Row(
                         modifier = Modifier

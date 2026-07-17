@@ -4,6 +4,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
+import androidx.core.graphics.toRect
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.db.StrokePoint
@@ -14,7 +15,7 @@ import com.ethran.notable.editor.state.Operation
 import io.shipbook.shipbooksdk.Log
 
 enum class Eraser(val _name: String) {
-    PEN("PEN"), SELECT("SELECT"),
+    PARTIAL("PARTIAL"), PEN("PEN"), SELECT("SELECT"),
 }
 
 const val SCRIBBLE_TO_ERASE_GRACE_PERIOD_MS = 150L
@@ -159,7 +160,11 @@ fun handleScribbleToErase(
 
 // points is in page coordinates, returns effected area.
 fun handleErase(
-    page: PageView, history: History, points: List<SimplePointF>, eraser: Eraser
+    page: PageView,
+    history: History,
+    points: List<SimplePointF>,
+    eraser: Eraser,
+    partialRadius: Float = 15f,
 ): Rect? {
     val paint = Paint().apply {
         this.strokeWidth = 30f
@@ -177,11 +182,35 @@ fun handleErase(
     }
 
 
-    if (eraser == Eraser.PEN) {
+    if (eraser == Eraser.PEN || eraser == Eraser.PARTIAL) {
         paint.getFillPath(path, outPath)
     }
 
-    val deletedStrokes = selectStrokesFromPath(page.strokes, outPath)
+    val pathBounds = RectF().also { outPath.computeBounds(it, true) }
+    val candidateRect = pathBounds.expandBy(partialRadius + 5f).toRect()
+    val candidates = page.pageDataManager.getStrokesInRectangle(candidateRect, page.currentPageId).orEmpty()
+
+    if (eraser == Eraser.PARTIAL) {
+        val eraserPoints = points.map { StrokePoint(it.x, it.y) }
+        val removed = mutableListOf<Stroke>()
+        val added = mutableListOf<Stroke>()
+        candidates.forEach { stroke ->
+            val parts = StrokeSplitter.splitStroke(stroke, eraserPoints, partialRadius)
+            if (!(parts.size == 1 && parts.first() === stroke)) {
+                removed += stroke
+                added += parts
+            }
+        }
+        if (removed.isEmpty()) return null
+        page.replaceStrokes(removed, added)
+        history.addOperationsToHistory(listOf(Operation.ReplaceStrokes(before = added, after = removed)))
+        val affected = strokeBounds(removed + added)
+        val screen = page.toScreenCoordinates(affected)
+        page.drawAreaScreenCoordinates(screenArea = screen)
+        return screen
+    }
+
+    val deletedStrokes = selectStrokesFromPath(candidates, outPath)
 
     val deletedStrokeIds = deletedStrokes.map { it.id }
 
